@@ -1,0 +1,157 @@
+# ===========================================================================
+# deploy.yml  -  automatic deployment to Hugging Face Spaces
+# ===========================================================================
+#
+# WHAT GITHUB ACTIONS IS
+# ----------------------
+# A robot that lives inside GitHub. You give it a checklist in a file like this
+# one, and it runs that checklist automatically whenever something happens - in
+# our case, whenever code is pushed to the `main` branch.
+#
+# WHAT THIS CHECKLIST DOES
+# ------------------------
+#   Job 1 "validate"  - proves the code actually works before anything ships:
+#                       the saved model loads, it makes sane predictions, and
+#                       the React app compiles without errors.
+#   Job 2 "deploy"    - only runs if job 1 passed. Pushes the repository to the
+#                       Hugging Face Space, which rebuilds the Docker image and
+#                       restarts the live app.
+#
+# The two-job split matters. Without it, a typo could be deployed to a live URL
+# and only discovered by whoever opened it next. Here, a broken build fails at
+# the validation step and the Space is left untouched, still running the last
+# good version.
+#
+# ABOUT THE TOKEN
+# ---------------
+# HF_TOKEN is a GitHub Actions SECRET. It is typed once into the repository
+# settings and then encrypted; nobody can read it back, not even us. The robot
+# can use it, but it never appears in this file, in the logs, or in the code.
+# That satisfies the brief's requirement that the token must not be hard-coded.
+# ===========================================================================
+
+name: Deploy to Hugging Face Space
+
+on:
+  # Run automatically on every push to main.
+  push:
+    branches: [main]
+  # Also allow running it by hand from the Actions tab, which is useful for
+  # redeploying without having to invent a code change.
+  workflow_dispatch:
+
+# Stop an older run if a newer push arrives, so two deployments can never race
+# each other to the same Space.
+concurrency:
+  group: deploy-hugging-face
+  cancel-in-progress: true
+
+env:
+  HF_USERNAME: samuelalex37
+  SPACE_NAME: olist-delivery-risk
+
+jobs:
+  # -------------------------------------------------------------------------
+  # JOB 1 - prove it works before shipping it
+  # -------------------------------------------------------------------------
+  validate:
+    name: Validate model and frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Verify the saved model loads and predicts correctly
+        # Reuses the same smoke test we run locally: the model file loads, it
+        # accepts a hand-typed order, it ranks a risky order above a safe one,
+        # and an unseen product category does not crash it.
+        run: python src/05_smoke_test.py
+
+      - name: Verify the FastAPI app starts and answers
+        run: |
+          python -m uvicorn app:app --host 127.0.0.1 --port 7860 &
+          # Poll until the server answers rather than sleeping a fixed guess.
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:7860/api/health > /dev/null; then
+              echo "API is up."
+              curl -s http://127.0.0.1:7860/api/health
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::The API never became healthy within 60 seconds."
+          exit 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Compile the React app
+        # `tsc -b` runs first inside this script, so any TypeScript error fails
+        # the build here rather than silently shipping a broken bundle.
+        working-directory: frontend
+        run: npm run build
+
+  # -------------------------------------------------------------------------
+  # JOB 2 - deploy, but only if validation passed
+  # -------------------------------------------------------------------------
+  deploy:
+    name: Push to Hugging Face Space
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Check out the full history
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 downloads every commit, not just the latest one.
+          # Without it the push to Hugging Face is rejected as an incomplete
+          # history.
+          fetch-depth: 0
+
+      - name: Configure Git identity for the robot
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Push the repository to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::HF_TOKEN secret is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          # --force is required, not lazy. The GitHub repository and the Space
+          # repository were created separately and share no common ancestor, so
+          # a normal push is always rejected. GitHub remains the single source
+          # of truth and the Space is a mirror of it.
+          git push --force \
+            "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}" \
+            HEAD:main
+
+      - name: Report where it went
+        run: |
+          echo "### ✅ Deployed to Hugging Face" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Space:** https://huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The Space is now rebuilding its Docker image. This normally takes 3-6 minutes." >> $GITHUB_STEP_SUMMARY
