@@ -1,0 +1,10 @@
+table,file,rows,columns,memory_MB
+geolocation,olist_geolocation_dataset.csv,1000163,5,50.1
+order_items,olist_order_items_dataset.csv,112650,7,16.3
+payments,olist_order_payments_dataset.csv,103886,5,8.1
+customers,olist_customers_dataset.csv,99441,5,11.0
+orders,olist_orders_dataset.csv,99441,8,13.0
+reviews,olist_order_reviews_dataset.csv,99224,7,14.2
+products,olist_products_dataset.csv,32951,9,3.7
+sellers,olist_sellers_dataset.csv,3095,4,0.2
+category_translation,product_category_name_translation.csv,71,2,0.0
