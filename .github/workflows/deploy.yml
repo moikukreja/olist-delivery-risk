@@ -61,6 +61,12 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
+        with:
+          # lfs: true is essential. model.joblib and dashboard_data.parquet are
+          # stored in Git LFS, and without this the runner downloads tiny text
+          # POINTER files instead of the real binaries. joblib.load() would then
+          # fail on a file that looks like "version https://git-lfs...".
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -125,6 +131,9 @@ jobs:
           # Without it the push to Hugging Face is rejected as an incomplete
           # history.
           fetch-depth: 0
+          # Fetch the real LFS binaries, not just their pointer files, so the
+          # Space receives a working model instead of a text placeholder.
+          lfs: true
 
       - name: Configure Git identity for the robot
         run: |
@@ -140,13 +149,20 @@ jobs:
             exit 1
           fi
 
+          SPACE_URL="https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}"
+
+          # Upload the LFS binaries first. Hugging Face rejects any push that
+          # carries binary files inline, so model.joblib, dashboard_data.parquet
+          # and the report figures all travel through LFS. Doing this explicitly
+          # rather than relying on the pre-push hook means a failure here is
+          # reported clearly instead of surfacing later as a corrupt model.
+          git lfs push --all "$SPACE_URL" main
+
           # --force is required, not lazy. The GitHub repository and the Space
           # repository were created separately and share no common ancestor, so
           # a normal push is always rejected. GitHub remains the single source
           # of truth and the Space is a mirror of it.
-          git push --force \
-            "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}" \
-            HEAD:main
+          git push --force "$SPACE_URL" HEAD:main
 
       - name: Report where it went
         run: |
