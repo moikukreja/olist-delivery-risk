@@ -1,0 +1,20 @@
+[1] Only 8.11% of delivered orders arrived late (7,826 out of 96,470). The dataset is imbalanced, so accuracy alone is a misleading metric - always predicting 'on time' would score 91.9% while catching no late orders at all.
+
+[2] Distance is strongly predictive. Orders travelling under 50 km are late 6.5% of the time, rising to 13.1% beyond 1,500 km - roughly 2.0 times higher. This column did not exist in the raw data; we engineered it from the geolocation table.
+
+[3] The promised window behaves as expected: orders promised within 7 days are late 31.3% of the time, versus 5.6% for orders given 31-60 days. This feature is legitimate because the promised date is displayed to the customer at checkout, so it is genuinely known at prediction time.
+
+[4] Late deliveries are highly unstable over time, swinging from 1.1% in October 2016 to 21.4% in March 2018 - a 19-fold difference around an overall average of 8.1%. Two distinct disruptions are visible: a sharp Black Friday spike in November 2017 (14.3%, roughly triple the preceding months) and a sustained deterioration through February-March 2018 that the dataset alone cannot explain. Because performance depends so heavily on when an order is placed, purchase month and week are worth giving to the model.
+
+[5] Delivery reliability varies sharply by region. AL has the highest late rate at 23.9%, while RO is the most reliable at 2.9%. States far from the Sao Paulo seller hub perform consistently worse.
+
+[6] Product category matters: 'audio' is late 13.1% of the time versus only 5.4% for 'luggage_accessories'. Bulky and fragile categories are over-represented at the risky end.
+
+[7] All money and size columns are heavily right-skewed. Order value has a median of R$ 86 but a maximum of R$ 13,440; 7,658 orders (7.9%) fall outside the standard 1.5x IQR range. We keep these rather than delete them - they are genuine high-value purchases, and tree-based models are not disturbed by skew.
+
+[8] No single numeric column correlates strongly with lateness on its own. The strongest linear relationships are distance_km (+0.069), estimated_delivery_days (-0.060), same_state (-0.056). Weak individual correlations are precisely why a linear model will struggle here and why tree-based ensembles, which capture interactions between features, should perform better.
+
+[9] This is the commercial justification for the whole project. Orders delivered on time average 4.29 stars; late orders average 2.57. The share of 1-2 star reviews jumps from 9.2% to 54.1% - a 5.9x increase. Every late delivery predicted in advance is a chance to protect a customer relationship before it is damaged.
+
+[10] After joining, 15 columns still contain gaps. The largest is 'avg_photos_qty' at 1.38%. All of these are handled inside the modelling pipeline by imputation, never by deleting rows.
+
