@@ -1,0 +1,54 @@
+# ---------------------------------------------------------------------------
+# .gitignore  -  files Git should IGNORE and never upload
+# ---------------------------------------------------------------------------
+# Anything listed here stays on your laptop only. This keeps the GitHub
+# repository small, fast to clone, and free of things that should not be public.
+# ---------------------------------------------------------------------------
+
+# --- The raw Kaggle data (about 120 MB) -----------------------------------
+# Committing raw data to Git is bad practice: it bloats the repository forever,
+# and the data is already publicly available from Kaggle. The README explains
+# how to download it. Only the small PROCESSED files the app needs get committed.
+data/raw/
+data/processed/*
+!data/processed/.gitkeep
+
+# --- Python virtual environment (hundreds of MB) --------------------------
+venv/
+.venv/
+env/
+
+# --- Node dependencies and compiled frontend ------------------------------
+# node_modules is reinstalled from package-lock.json, and static/ is generated
+# by "npm run build". Committing build output causes confusing merge conflicts
+# and lets a stale bundle ship by accident.
+frontend/node_modules/
+frontend/br_states_raw.json
+frontend/tsconfig.tsbuildinfo
+static/
+
+# --- Python's compiled cache files ----------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# --- Secrets: never, ever commit these ------------------------------------
+# The Hugging Face token lives in GitHub Actions secrets, not in a file.
+.env
+*.key
+secrets.toml
+.streamlit/secrets.toml
+
+# --- Editor and operating-system clutter ----------------------------------
+.vscode/
+.idea/
+.claude/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Jupyter ---------------------------------------------------------------
+.ipynb_checkpoints/
+
+# --- Report screenshots stay local (they go to Overleaf, not GitHub) ------
+screenshots/

@@ -1,0 +1,24 @@
+# ---------------------------------------------------------------------------
+# requirements.txt  -  what the DEPLOYED APPLICATION needs
+# ---------------------------------------------------------------------------
+# These are the only Python packages installed into the Docker image that runs
+# on Hugging Face Spaces. The React frontend needs no Python at all - it is
+# compiled to plain HTML/CSS/JS during the Docker build and simply served.
+#
+# WHY THE VERSIONS ARE PINNED WITH '==' :
+# A model saved by scikit-learn 1.9.0 can refuse to load under a different
+# version. Pinning guarantees the Space runs the exact libraries that trained
+# the model, so what worked on the laptop also works in the cloud.
+# ---------------------------------------------------------------------------
+
+# --- web server -------------------------------------------------------------
+fastapi==0.139.2
+uvicorn[standard]==0.51.0
+pydantic==2.13.4
+
+# --- machine learning + data ------------------------------------------------
+scikit-learn==1.9.0
+pandas==3.0.5
+numpy==2.4.6
+joblib==1.5.3
+pyarrow==24.0.0

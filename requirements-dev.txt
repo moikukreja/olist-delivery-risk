@@ -1,0 +1,23 @@
+# ---------------------------------------------------------------------------
+# requirements-dev.txt  -  what a DEVELOPER needs to rebuild everything
+# ---------------------------------------------------------------------------
+# Install with:
+#     venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+#
+# This is everything the live app needs, PLUS:
+#   - matplotlib / seaborn : draw the static report figures in reports/figures/
+#   - streamlit / plotly   : run the original Streamlit prototype, kept as a
+#                            fallback in streamlit_app.py
+# None of these are installed into the deployed Docker image, which keeps the
+# Space small and its build fast.
+# ---------------------------------------------------------------------------
+
+-r requirements.txt
+
+# --- report figures ---------------------------------------------------------
+matplotlib==3.11.1
+seaborn==0.13.2
+
+# --- the Streamlit fallback prototype ---------------------------------------
+streamlit==1.60.0
+plotly==6.9.0

@@ -1,0 +1,29 @@
+# ---------------------------------------------------------------------------
+# .gitattributes  -  keeps line endings consistent across operating systems
+# THE PROBLEM
+# Windows ends every line with two invisible characters (CRLF); Linux and macOS
+# use one (LF). Without this file, a Windows machine commits CRLF, the Linux
+# build server sees LF, and Git reports every single line of every file as
+# changed - which makes diffs useless and can break shell scripts inside Docker.
+#
+# THE FIX
+# "text=auto eol=lf" tells Git to store everything with LF inside the
+# repository, regardless of which machine committed it. Our GitHub Actions
+# runner and Docker image are both Linux, so this is what they expect.
+
+* text=auto eol=lf
+# Files that must keep LF or they will not run on Linux.
+*.sh        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+Dockerfile  text eol=lf
+# Binary files: never touch these. "Fixing" line endings inside a PNG or a
+# pickled model would corrupt it.
+*.png       binary
+*.jpg       binary
+*.joblib    binary
+*.parquet   binary
+*.ico       binary
+*.joblib filter=lfs diff=lfs merge=lfs -text
+*.parquet filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text
