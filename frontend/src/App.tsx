@@ -66,6 +66,12 @@ export default function App() {
               <span className="chip">
                 Base late rate <b>{(config.model.baseRate * 100).toFixed(2)}%</b>
               </span>
+              {/* This chip is the visible proof of automated deployment. It was
+                  added AFTER the Space went live, pushed to GitHub, and reached
+                  the live site without anyone touching Hugging Face. */}
+              <span className="chip chip-live">
+                <span className="live-dot" /> Auto-deployed by GitHub Actions
+              </span>
             </div>
           )}
         </header>

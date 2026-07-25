@@ -182,6 +182,12 @@ export default function About({ config }: { config: AppConfig }) {
                 </a>
               </li>
             </ul>
+            <h3>A note on loading</h3>
+            <p style={{ marginBottom: 0 }}>
+              This Space runs on free hardware, which sleeps after 48 hours of
+              inactivity. If you see <b>&ldquo;Starting&rdquo;</b>, give it about
+              30 seconds — the container is waking up, not rebuilding.
+            </p>
           </div>
         </Glass>
       </div>
