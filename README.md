@@ -6,7 +6,7 @@ colorTo: indigo
 sdk: docker
 app_port: 7860
 pinned: false
-license: mit
+license: cc-by-nc-sa-4.0
 short_description: Predicting late deliveries on Brazil's largest e-commerce marketplace
 ---
 
