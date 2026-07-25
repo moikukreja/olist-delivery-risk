@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: cc-by-nc-sa-4.0
-short_description: Predicting late deliveries on Brazil's largest e-commerce marketplace
+short_description: Predicting late delivery risk for Brazilian e-commerce
 ---
 
 # 📦 Olist Delivery Risk Radar
