@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { fetchConfig } from "./api";
 import type { AppConfig } from "./types";
 import About from "./components/About";
+import BatchUpload from "./components/BatchUpload";
 import Dashboard from "./components/Dashboard";
 import ModelInsights from "./components/ModelInsights";
 import Predict from "./components/Predict";
@@ -20,6 +21,7 @@ import { ErrorBox, Loading } from "./components/ui";
 const TABS = [
   { key: "dashboard", label: "📊  Dashboard" },
   { key: "predict", label: "🔮  Predict an Order" },
+  { key: "batch", label: "📦  Batch Upload" },
   { key: "model", label: "📈  Model Insights" },
   { key: "about", label: "ℹ️  About" },
 ] as const;
@@ -95,6 +97,7 @@ export default function App() {
           <main>
             {tab === "dashboard" && <Dashboard config={config} />}
             {tab === "predict" && <Predict config={config} />}
+            {tab === "batch" && <BatchUpload />}
             {tab === "model" && <ModelInsights config={config} />}
             {tab === "about" && <About config={config} />}
           </main>

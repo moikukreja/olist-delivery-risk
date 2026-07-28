@@ -1,0 +1,217 @@
+# ===========================================================================
+# mlops-pipeline.yml  -  the four-stage MLOps pipeline
+# ===========================================================================
+#
+# WHAT THIS IS
+# A complete machine-learning lifecycle expressed as automation: the data is
+# registered, split, used to train and calibrate a model, and the resulting
+# model is promoted to the live application. Each stage runs on its own fresh
+# machine and passes its output to the next through the Hugging Face Hub, which
+# acts as the shared, versioned storage layer.
+#
+#   register-dataset  ->  data-prep  ->  model-training  ->  deploy-hosting
+#     HF Dataset          frozen          MLflow +            promote to
+#     repository          train/test      HF Model repo       the live Space
+#
+# WHY IT DOES NOT RUN ON EVERY PUSH
+# This is the important design decision, and it is deliberate.
+#
+# Retraining on every commit would mean a slightly different model deploying
+# each time, so the figures quoted throughout the project report would stop
+# matching the live application. It would also add roughly fifteen minutes to
+# every push for no benefit, since most commits change the frontend rather than
+# the model.
+#
+# So the two workflows have different jobs:
+#   deploy.yml           runs on every push  - ships the APPLICATION
+#   mlops-pipeline.yml   runs on demand      - retrains and registers the MODEL
+#
+# A monthly schedule is included and commented out. Enable it once the project
+# is no longer being assessed against a fixed set of reported numbers.
+# ===========================================================================
+
+name: MLOps pipeline
+
+on:
+  # Run it by hand from the Actions tab. The inputs let you rehearse the
+  # pipeline without touching the live Space.
+  workflow_dispatch:
+    inputs:
+      promote_to_space:
+        description: "Promote the newly trained model to the live Space?"
+        type: boolean
+        default: false
+      reason:
+        description: "Why is this run happening? (recorded in the summary)"
+        type: string
+        default: "Manual pipeline demonstration"
+
+  # Uncomment to retrain automatically on the first of each month at 03:00 UTC.
+  # schedule:
+  #   - cron: "0 3 1 * *"
+
+# Never let two pipeline runs write to the same Hub repositories at once.
+concurrency:
+  group: mlops-pipeline
+  cancel-in-progress: false
+
+env:
+  HF_USER: samuelalex37
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # -------------------------------------------------------------------------
+  # STAGE 1 - register the dataset
+  # -------------------------------------------------------------------------
+  register-dataset:
+    name: "Stage 1 · Register dataset"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: mlops/requirements.txt
+
+      - name: Install pipeline dependencies
+        run: pip install -r mlops/requirements.txt
+
+      - name: Register the dataset on the Hugging Face Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python mlops/data_register.py
+
+  # -------------------------------------------------------------------------
+  # STAGE 2 - split into train and test
+  # -------------------------------------------------------------------------
+  data-prep:
+    name: "Stage 2 · Data preparation"
+    needs: register-dataset
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: mlops/requirements.txt
+
+      - name: Install pipeline dependencies
+        run: pip install -r mlops/requirements.txt
+
+      - name: Split and publish the train/test partitions
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python mlops/prep.py
+
+  # -------------------------------------------------------------------------
+  # STAGE 3 - train, calibrate, register
+  # -------------------------------------------------------------------------
+  model-training:
+    name: "Stage 3 · Model training"
+    needs: data-prep
+    runs-on: ubuntu-latest
+    # Three models plus five-fold calibration takes a while on a free runner.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: mlops/requirements.txt
+
+      - name: Install pipeline dependencies
+        run: pip install -r mlops/requirements.txt
+
+      - name: Train, calibrate and register the model
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python mlops/train.py
+
+      # The runner is destroyed when the job ends, taking ./mlruns with it.
+      # Uploading it as an artefact means the experiment history survives and
+      # can be downloaded and opened with `mlflow ui` afterwards.
+      - name: Upload the MLflow experiment history
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-tracking
+          path: mlruns/
+          retention-days: 30
+
+      - name: Upload the trained artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-artifacts
+          path: mlops_artifacts/
+          retention-days: 30
+
+  # -------------------------------------------------------------------------
+  # STAGE 4 - promote to the live Space
+  # -------------------------------------------------------------------------
+  deploy-hosting:
+    name: "Stage 4 · Promote to Space"
+    needs: [register-dataset, data-prep, model-training]
+    runs-on: ubuntu-latest
+    # Only promotes when explicitly asked. A scheduled run trains and registers
+    # a candidate but leaves the live Space alone until a human approves it.
+    if: ${{ inputs.promote_to_space == true }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: mlops/requirements.txt
+
+      - name: Install pipeline dependencies
+        run: pip install -r mlops/requirements.txt
+
+      - name: Run pre-flight checks and promote
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python mlops/hosting.py
+
+  # -------------------------------------------------------------------------
+  # Summary - always runs, so the Actions page explains what happened
+  # -------------------------------------------------------------------------
+  summary:
+    name: "Pipeline summary"
+    needs: [register-dataset, data-prep, model-training, deploy-hosting]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write the run summary
+        run: |
+          {
+            echo "## MLOps pipeline run"
+            echo ""
+            echo "**Reason:** ${{ inputs.reason }}"
+            echo ""
+            echo "| Stage | Result |"
+            echo "|---|---|"
+            echo "| 1 · Register dataset | ${{ needs.register-dataset.result }} |"
+            echo "| 2 · Data preparation | ${{ needs.data-prep.result }} |"
+            echo "| 3 · Model training | ${{ needs.model-training.result }} |"
+            echo "| 4 · Promote to Space | ${{ needs.deploy-hosting.result }} |"
+            echo ""
+            echo "**Dataset:** https://huggingface.co/datasets/${{ env.HF_USER }}/olist-delivery-risk-data"
+            echo ""
+            echo "**Model registry:** https://huggingface.co/${{ env.HF_USER }}/olist-delivery-risk-model"
+            echo ""
+            if [ "${{ inputs.promote_to_space }}" = "true" ]; then
+              echo "The model was promoted to the live Space."
+            else
+              echo "Promotion was skipped. The model is registered but the live Space is unchanged."
+              echo "Re-run with **Promote to Space** ticked to deploy it."
+            fi
+            echo ""
+            echo "The MLflow experiment history is attached to this run as the \`mlflow-tracking\` artefact."
+          } >> $GITHUB_STEP_SUMMARY

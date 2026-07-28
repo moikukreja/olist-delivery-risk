@@ -134,6 +134,29 @@ export interface PredictionResult {
   features: Record<string, number | string>;
 }
 
+export interface BatchSummary {
+  rowsSubmitted: number;
+  rowsScored: number;
+  rowsRejected: number;
+  flagged: number;
+  flaggedPct: number;
+  meanProbabilityPct: number;
+  baseRatePct: number;
+  tiers: Record<"LOW" | "MODERATE" | "HIGH" | "VERY HIGH", number>;
+  revenueFlagged?: number;
+  revenueTotal?: number;
+}
+
+export interface BatchResult {
+  summary: BatchSummary;
+  errors: { row: number; error: string }[];
+  columns: string[];
+  preview: Record<string, string | number>[];
+  /** The complete scored file as CSV text, ready to offer as a download. */
+  csv: string;
+  filename: string;
+}
+
 export interface DashboardFilters {
   monthFrom: string | null;
   monthTo: string | null;

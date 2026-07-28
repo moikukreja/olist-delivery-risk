@@ -10,6 +10,7 @@
 
 import type {
   AppConfig,
+  BatchResult,
   DashboardData,
   DashboardFilters,
   OrderRequest,
@@ -70,3 +71,17 @@ export function predictOrder(order: OrderRequest): Promise<PredictionResult> {
     body: JSON.stringify(order),
   });
 }
+
+/** Upload a CSV of orders and score every row in one request. */
+export function predictBatch(file: File): Promise<BatchResult> {
+  const form = new FormData();
+  form.append("file", file);
+  // Deliberately no Content-Type header: the browser must set it itself so it
+  // can append the multipart boundary token. Setting it by hand breaks upload.
+  return request<BatchResult>("/api/predict/batch", {
+    method: "POST",
+    body: form,
+  });
+}
+
+export const BATCH_TEMPLATE_URL = "/api/predict/batch/template";

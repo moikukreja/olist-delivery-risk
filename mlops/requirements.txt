@@ -1,0 +1,35 @@
+# ---------------------------------------------------------------------------
+# mlops/requirements.txt  -  what the MLOps PIPELINE needs
+# ---------------------------------------------------------------------------
+# Installed on the GitHub Actions runner for the four pipeline stages. This is
+# separate from the root requirements.txt, which lists only what the deployed
+# application needs. The pipeline needs extra tooling (the Hub client, MLflow)
+# that the live app does not, and shipping those into the Space would make the
+# container larger and slower to build for no benefit.
+#
+# scikit-learn, pandas and numpy are pinned to the SAME versions as the app.
+# A model trained here must deserialise there, and a version mismatch between
+# the two is the classic way that silently breaks.
+# ---------------------------------------------------------------------------
+
+# --- Hugging Face Hub: dataset, model registry and Space -------------------
+huggingface_hub==0.36.0
+
+# --- data and modelling (must match the app's pinned versions) -------------
+scikit-learn==1.9.0
+pandas==3.0.5
+numpy==2.4.6
+pyarrow==24.0.0
+joblib==1.5.3
+
+# --- experiment tracking ----------------------------------------------------
+# mlflow-skinny, NOT the full mlflow package. This is deliberate and was found
+# the hard way: full mlflow pins pandas below 3, so installing it alongside our
+# pandas 3.0.5 fails outright with ResolutionImpossible. That pin comes from
+# mlflow's bundled tracking SERVER, which we do not run - the pipeline logs to a
+# local ./mlruns directory that is uploaded as a build artefact instead.
+#
+# mlflow-skinny is the client alone: log_param, log_metric, log_artifact and
+# file-based tracking all work identically. To browse the downloaded artefact
+# afterwards, install full mlflow locally and run:  mlflow ui --backend-store-uri ./mlruns
+mlflow-skinny==3.14.0

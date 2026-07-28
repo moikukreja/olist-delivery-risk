@@ -29,6 +29,7 @@ Run it locally with:
 
 from __future__ import annotations
 
+import io
 import json
 from datetime import date
 from pathlib import Path
@@ -36,9 +37,9 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -354,24 +355,38 @@ def build_driver_list(promised_days: int, distance: float,
     return drivers
 
 
-@app.post("/api/predict")
-def predict(order: OrderRequest) -> dict:
+def route_distance_km(seller_state: str, customer_state: str) -> float:
+    """
+    How far will the parcel really travel?
+
+    We use the median distance actually observed on this exact route, because
+    measuring between two state centres would claim a Sao Paulo -> Sao Paulo
+    delivery travels 0 km. Only if the route was never seen do we fall back to
+    the straight-line calculation.
+    """
     coords = CONFIG["state_coordinates"]
-    if order.sellerState not in coords or order.customerState not in coords:
-        raise HTTPException(status_code=400, detail="Unknown state code.")
+    seller = coords[seller_state]
+    customer = coords[customer_state]
 
-    seller = coords[order.sellerState]
-    customer = coords[order.customerState]
-
-    # How far will the parcel really travel? We use the median distance actually
-    # observed on this exact route, because measuring between two state centres
-    # would claim a Sao Paulo -> Sao Paulo delivery travels 0 km. Only if the
-    # route was never seen do we fall back to the straight-line calculation.
-    route_key = f"{order.sellerState}|{order.customerState}"
-    distance = CONFIG["route_distances"].get(route_key)
+    distance = CONFIG["route_distances"].get(f"{seller_state}|{customer_state}")
     if distance is None:
         distance = haversine_km(seller["lat"], seller["lng"],
                                 customer["lat"], customer["lng"])
+    return float(distance)
+
+
+def build_features(order: OrderRequest) -> tuple[dict, float]:
+    """
+    Turn the twelve values a user supplies into the thirty-four columns the
+    model was trained on.
+
+    Both the single-order endpoint and the batch endpoint call this, so the two
+    paths can never drift apart and start disagreeing about the same order.
+    """
+    coords = CONFIG["state_coordinates"]
+    seller = coords[order.sellerState]
+    customer = coords[order.customerState]
+    distance = route_distance_km(order.sellerState, order.customerState)
 
     stamp = pd.Timestamp(order.purchaseDate)
     silent = CONFIG["silent_defaults"]
@@ -410,6 +425,33 @@ def predict(order: OrderRequest) -> dict:
         "primary_category": order.category,
         "payment_type": order.paymentType,
     }
+    return features, distance
+
+
+def classify(probability: float) -> tuple[str, str]:
+    """Map a probability onto a risk tier and the action it implies."""
+    if probability >= 0.30:
+        return "VERY HIGH", (
+            "Do not confirm this delivery date. Extend the estimate, upgrade the "
+            "shipping method, or contact the seller before the order is accepted.")
+    if probability >= THRESHOLD:
+        return "HIGH", (
+            "Add to the proactive-care queue. Send the customer a realistic "
+            "expectation and monitor dispatch closely.")
+    if probability >= BASE_RATE:
+        return "MODERATE", (
+            "Slightly above the marketplace average. Standard monitoring is enough.")
+    return "LOW", "Safe to confirm. No intervention needed."
+
+
+@app.post("/api/predict")
+def predict(order: OrderRequest) -> dict:
+    coords = CONFIG["state_coordinates"]
+    if order.sellerState not in coords or order.customerState not in coords:
+        raise HTTPException(status_code=400, detail="Unknown state code.")
+
+    features, distance = build_features(order)
+    stamp = pd.Timestamp(order.purchaseDate)
 
     frame = pd.DataFrame([features])[FEATURE_ORDER]
     probability = float(MODEL.predict_proba(frame)[0, 1])
@@ -442,6 +484,202 @@ def predict(order: OrderRequest) -> dict:
                                      order.sellerState, order.customerState, stamp.month),
         "features": {k: (round(v, 4) if isinstance(v, float) else v)
                      for k, v in features.items()},
+    }
+
+
+# ===========================================================================
+# /api/predict/batch  -  score a whole CSV of orders at once
+# ===========================================================================
+# WHY THIS EXISTS
+# The single-order form suits a call-centre agent checking one customer. It is
+# useless to an operations team that wants to triage this morning's 5,000
+# orders. Batch scoring turns the model from a lookup tool into something that
+# can run against a whole day's trading.
+#
+# The columns below are exactly the twelve fields the web form collects, so a
+# user who understands the form already understands the CSV.
+BATCH_COLUMNS = {
+    "seller_state": "Two-letter state code the parcel ships from, e.g. SP",
+    "customer_state": "Two-letter state code the parcel ships to, e.g. AM",
+    "promised_days": "Days promised to the customer at checkout",
+    "category": "Product category, e.g. health_beauty",
+    "order_value": "Order value in Brazilian reais",
+    "freight_value": "Freight charged in Brazilian reais",
+    "weight_grams": "Total order weight in grams",
+    "item_count": "Number of items in the order",
+    "seller_count": "Number of distinct sellers in the order",
+    "payment_type": "Payment method, e.g. credit_card",
+    "installments": "Number of payment instalments",
+    "purchase_date": "Date the order was placed, YYYY-MM-DD",
+}
+# Any column named here is carried through to the output untouched so the
+# operations team can join results back to their own records.
+PASSTHROUGH_COLUMNS = ["order_id", "customer_id", "reference", "notes"]
+
+MAX_BATCH_ROWS = 20_000
+
+
+@app.get("/api/predict/batch/template")
+def batch_template() -> Response:
+    """Download a small, correctly formatted example CSV."""
+    example = pd.DataFrame([
+        {"order_id": "ORD-0001", "seller_state": "SP", "customer_state": "SP",
+         "promised_days": 20, "category": "housewares", "order_value": 90.0,
+         "freight_value": 17.0, "weight_grams": 750, "item_count": 1,
+         "seller_count": 1, "payment_type": "credit_card", "installments": 2,
+         "purchase_date": "2018-06-15"},
+        {"order_id": "ORD-0002", "seller_state": "SP", "customer_state": "PE",
+         "promised_days": 12, "category": "health_beauty", "order_value": 250.0,
+         "freight_value": 28.0, "weight_grams": 1200, "item_count": 1,
+         "seller_count": 1, "payment_type": "credit_card", "installments": 3,
+         "purchase_date": "2018-08-20"},
+        {"order_id": "ORD-0003", "seller_state": "SP", "customer_state": "AM",
+         "promised_days": 12, "category": "furniture_decor", "order_value": 480.0,
+         "freight_value": 42.0, "weight_grams": 2000, "item_count": 1,
+         "seller_count": 1, "payment_type": "credit_card", "installments": 8,
+         "purchase_date": "2018-11-24"},
+        {"order_id": "ORD-0004", "seller_state": "SP", "customer_state": "SP",
+         "promised_days": 6, "category": "health_beauty", "order_value": 250.0,
+         "freight_value": 28.0, "weight_grams": 1200, "item_count": 1,
+         "seller_count": 1, "payment_type": "credit_card", "installments": 3,
+         "purchase_date": "2018-08-20"},
+    ])
+    return Response(
+        content=example.to_csv(index=False),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="batch_template.csv"'},
+    )
+
+
+@app.post("/api/predict/batch")
+async def predict_batch(file: UploadFile = File(...)) -> dict:
+    """
+    Score every row of an uploaded CSV.
+
+    Returns a summary, a preview of the first rows, and the complete results
+    encoded as CSV text so the browser can offer it as a download without a
+    second request.
+    """
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Please upload a .csv file.")
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+
+    try:
+        # utf-8-sig strips the invisible byte-order mark Excel writes, which
+        # would otherwise corrupt the first column name.
+        frame = pd.read_csv(io.BytesIO(raw), encoding="utf-8-sig")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not read the CSV: {exc}")
+
+    if frame.empty:
+        raise HTTPException(status_code=400, detail="The CSV contains no rows.")
+    if len(frame) > MAX_BATCH_ROWS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{len(frame):,} rows exceeds the {MAX_BATCH_ROWS:,} row limit.")
+
+    frame.columns = [str(c).strip() for c in frame.columns]
+    missing = [c for c in BATCH_COLUMNS if c not in frame.columns]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing required column(s): {', '.join(missing)}. "
+                   f"Download the template to see the expected format.")
+
+    # ---- validate and score row by row --------------------------------------
+    # Rows are validated individually so that one malformed line reports its own
+    # row number instead of failing the entire upload.
+    valid_states = set(CONFIG["state_coordinates"])
+    feature_rows, distances, row_errors, kept = [], [], [], []
+
+    for position, (_, row) in enumerate(frame.iterrows(), start=2):  # 2 = first data line
+        try:
+            seller_state = str(row["seller_state"]).strip().upper()
+            customer_state = str(row["customer_state"]).strip().upper()
+            if seller_state not in valid_states:
+                raise ValueError(f"unknown seller_state '{seller_state}'")
+            if customer_state not in valid_states:
+                raise ValueError(f"unknown customer_state '{customer_state}'")
+
+            order = OrderRequest(
+                sellerState=seller_state,
+                customerState=customer_state,
+                promisedDays=int(float(row["promised_days"])),
+                category=str(row["category"]).strip(),
+                orderValue=float(row["order_value"]),
+                freightValue=float(row["freight_value"]),
+                weightGrams=float(row["weight_grams"]),
+                itemCount=int(float(row["item_count"])),
+                sellerCount=int(float(row["seller_count"])),
+                paymentType=str(row["payment_type"]).strip(),
+                installments=int(float(row["installments"])),
+                purchaseDate=pd.Timestamp(row["purchase_date"]).date(),
+            )
+            features, distance = build_features(order)
+            feature_rows.append(features)
+            distances.append(distance)
+            kept.append(row)
+        except Exception as exc:
+            row_errors.append({"row": position, "error": str(exc)})
+
+    if not feature_rows:
+        raise HTTPException(
+            status_code=400,
+            detail="No valid rows. First problem: " +
+                   (row_errors[0]["error"] if row_errors else "unknown"))
+
+    # One vectorised call for the whole batch rather than a loop of single
+    # predictions - on 20,000 rows that is the difference between seconds and
+    # minutes.
+    probabilities = MODEL.predict_proba(
+        pd.DataFrame(feature_rows)[FEATURE_ORDER])[:, 1]
+
+    results = pd.DataFrame(kept).reset_index(drop=True)
+    results["distance_km"] = [round(d, 1) for d in distances]
+    results["late_probability"] = probabilities.round(4)
+    results["late_probability_pct"] = (probabilities * 100).round(1)
+    results["risk_tier"] = [classify(p)[0] for p in probabilities]
+    results["flagged"] = (probabilities >= THRESHOLD).astype(int)
+    results["lift_vs_average"] = (probabilities / BASE_RATE).round(2)
+    results["recommended_action"] = [classify(p)[1] for p in probabilities]
+
+    flagged = int(results["flagged"].sum())
+    tier_counts = results["risk_tier"].value_counts().to_dict()
+
+    summary = {
+        "rowsSubmitted": int(len(frame)),
+        "rowsScored": int(len(results)),
+        "rowsRejected": len(row_errors),
+        "flagged": flagged,
+        "flaggedPct": round(flagged / len(results) * 100, 1),
+        "meanProbabilityPct": round(float(probabilities.mean()) * 100, 2),
+        "baseRatePct": round(BASE_RATE * 100, 2),
+        "tiers": {t: int(tier_counts.get(t, 0))
+                  for t in ("LOW", "MODERATE", "HIGH", "VERY HIGH")},
+    }
+    # If the file carries order values, quantify how much revenue sits behind
+    # the flagged orders - the number an operations manager actually cares about.
+    if "order_value" in results.columns:
+        at_risk = float(results.loc[results["flagged"] == 1, "order_value"].sum())
+        summary["revenueFlagged"] = round(at_risk, 2)
+        summary["revenueTotal"] = round(float(results["order_value"].sum()), 2)
+
+    preview_columns = (
+        [c for c in PASSTHROUGH_COLUMNS if c in results.columns]
+        + ["seller_state", "customer_state", "promised_days", "category",
+           "order_value", "distance_km", "late_probability_pct", "risk_tier"]
+    )
+
+    return {
+        "summary": summary,
+        "errors": row_errors[:25],
+        "columns": preview_columns,
+        "preview": results[preview_columns].head(100).to_dict(orient="records"),
+        "csv": results.to_csv(index=False),
+        "filename": f"scored_{Path(file.filename).stem}.csv",
     }
 
 

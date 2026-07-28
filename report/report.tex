@@ -1,0 +1,1824 @@
+%=============================================================================
+%  FINAL GROUP PROJECT REPORT
+%  ML Model Deployment using Hugging Face and GitHub Actions
+%  Software Development for AI Models
+%
+%  COMPILE WITH: pdflatex (run twice so the Table of Contents fills in)
+%
+%  FOLDER LAYOUT EXPECTED IN OVERLEAF:
+%      report.tex
+%      screenshots/      <- the 45 files fig01 ... fig45
+%      figures/          <- the 16 files fig_eda_* and fig_model_*
+%=============================================================================
+\documentclass[11pt,a4paper]{report}
+
+%----------------------------- PAGE GEOMETRY ---------------------------------
+\usepackage[a4paper,top=2.6cm,bottom=2.6cm,left=2.6cm,right=2.6cm]{geometry}
+
+%----------------------------- ENCODING & FONTS ------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[english]{babel}
+\usepackage{microtype}
+
+%----------------------------- GRAPHICS & TABLES -----------------------------
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+%----------------------------- LINKS -----------------------------------------
+\usepackage[hidelinks,breaklinks=true]{hyperref}
+\usepackage{url}
+
+%----------------------------- CODE LISTINGS ---------------------------------
+\usepackage{listings}
+
+%----------------------------- HEADERS AND FOOTERS ---------------------------
+\usepackage{fancyhdr}
+
+%----------------------------- THE PAGE BORDER -------------------------------
+% A single thin black rectangle is drawn on EVERY page, including the title
+% page and the table of contents. eso-pic places the drawing behind the text
+% on every shipped-out page, and TikZ draws the rectangle relative to the
+% physical paper edges so it never shifts with the text block.
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\usepackage{eso-pic}
+
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \draw[line width=0.5pt,black]
+      ($(current page.north west)+(1.30cm,-1.30cm)$)
+      rectangle
+      ($(current page.south east)+(-1.30cm,1.30cm)$);
+  \end{tikzpicture}%
+}
+
+%----------------------------- STYLE SETTINGS --------------------------------
+\definecolor{accentblue}{RGB}{31,78,121}
+\definecolor{lightgrey}{RGB}{242,242,242}
+\definecolor{codegreen}{RGB}{0,110,60}
+
+\captionsetup{font=small,labelfont=bf,width=0.92\textwidth}
+\setlength{\parskip}{0.55em}
+\setlength{\parindent}{0pt}
+\renewcommand{\arraystretch}{1.25}
+
+% Long code identifiers such as estimated_delivery_days cannot be hyphenated,
+% which can push a line past the margin. This gives TeX extra slack to stretch
+% inter-word spacing on the affected line rather than overflowing.
+\setlength{\emergencystretch}{3em}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\itshape Olist Delivery Risk Radar}
+\fancyhead[R]{\small\itshape Software Development for AI Models}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \fancyfoot[C]{\small\thepage}%
+  \renewcommand{\headrulewidth}{0pt}%
+}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  backgroundcolor=\color{lightgrey},
+  frame=single,
+  rulecolor=\color{gray},
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  keywordstyle=\color{accentblue}\bfseries,
+  commentstyle=\color{codegreen}\itshape,
+  columns=fullflexible,
+  xleftmargin=6pt,
+  framexleftmargin=6pt,
+  aboveskip=10pt,
+  belowskip=10pt
+}
+
+% Where to look for images. Overleaf will search both folders in order.
+\graphicspath{{screenshots/}{figures/}{./}}
+
+% A shorthand so every figure is laid out identically.
+\newcommand{\projfig}[3]{%
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width=#2\textwidth]{#1}
+    \caption{#3}
+    \label{fig:#1}
+  \end{figure}%
+}
+
+\begin{document}
+
+%=============================================================================
+%  TITLE PAGE
+%=============================================================================
+\begin{titlepage}
+\thispagestyle{empty}
+\centering
+% The document-wide \parskip would add vertical space after every block here
+% and push the closing lines onto a second page. Suppress it locally so the
+% whole title page fits on one sheet.
+\setlength{\parskip}{0pt}
+
+\vspace*{0.2cm}
+
+{\large\scshape Masters in Artificial Intelligence with Business\par}
+\vspace{0.20cm}
+{\normalsize Software Development for AI Models\par}
+
+\vspace{0.75cm}
+\rule{\textwidth}{1.1pt}
+\vspace{0.45cm}
+
+{\huge\bfseries Olist Delivery Risk Radar\par}
+\vspace{0.40cm}
+{\Large End-to-End Development and Automated\\[0.15cm]
+Deployment of a Machine Learning Application\\[0.15cm]
+on Hugging Face\par}
+
+\vspace{0.42cm}
+\rule{\textwidth}{1.1pt}
+
+\vspace{0.60cm}
+{\normalsize\itshape Predicting late deliveries on Brazil's largest e-commerce\\[0.10cm]
+marketplace using machine learning, deployed automatically\\[0.10cm]
+through GitHub Actions\par}
+
+\vspace{0.85cm}
+
+{\large\bfseries Submitted by\par}
+\vspace{0.35cm}
+{\normalsize
+\begin{tabular}{c}
+Kartik Joshi \\[0.16cm]
+Prem Kukreja \\[0.16cm]
+Samuel Alex \\[0.16cm]
+Gagandeep Singh \\[0.16cm]
+Aditya Chitale \\
+\end{tabular}\par}
+
+\vspace{0.80cm}
+
+{\large\bfseries Under the guidance of\par}
+\vspace{0.28cm}
+{\normalsize Prof.\ JP Agarwal\par}
+
+\vspace{0.85cm}
+
+{\normalsize\itshape Submitted for the partial fulfillment of the requirements\\[0.14cm]
+for the award of the degree of\par}
+\vspace{0.25cm}
+{\normalsize\bfseries Master of Science in Artificial Intelligence with Business\par}
+
+\vspace{0.75cm}
+{\normalsize Final Group Project\par}
+\vspace{0.16cm}
+{\normalsize July 2026\par}
+
+\vfill
+\end{titlepage}
+
+%=============================================================================
+%  TABLE OF CONTENTS
+%=============================================================================
+\pagenumbering{roman}
+\setcounter{page}{1}
+
+\tableofcontents
+\clearpage
+
+\listoffigures
+\clearpage
+
+\listoftables
+\clearpage
+
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+%=============================================================================
+\chapter{Problem Statement and Objective}
+%=============================================================================
+
+\section{The Business Problem}
+
+Olist is a Brazilian e-commerce marketplace that connects thousands of small,
+independent sellers to customers across all twenty-seven Brazilian states. The
+seller owns the stock and dispatches the parcel, but the customer buys through
+the Olist storefront. This creates a structural weakness that sits at the heart
+of this project: \textbf{when a seller delivers late, the customer does not
+blame the seller. They blame Olist.}
+
+Our analysis of 96{,}470 completed deliveries quantifies precisely how expensive
+that misattributed blame is. Orders that arrived on time received an average
+customer review of \textbf{4.29 stars out of 5}. Orders that arrived late
+averaged \textbf{2.57 stars}. Most strikingly, the proportion of orders receiving
+a damning one-star or two-star review rises from \textbf{9.2\%} when delivery is
+punctual to \textbf{54.1\%} when it is late. A late delivery therefore makes a
+severely negative review approximately \textbf{5.9 times more likely}.
+
+On a marketplace, poor reviews are not merely embarrassing. They suppress future
+search ranking, reduce conversion, and drive customers to competitors. The
+damage compounds long after the individual parcel has been delivered.
+
+\section{Objective}
+
+The practical objective of this project is to build a system that identifies
+at-risk orders \textbf{at the moment they are placed}, while there is still time
+to act.
+
+This timing constraint is the defining engineering requirement of the entire
+project. A model that predicts lateness after the parcel has already shipped is
+academically interesting and commercially worthless. A model that predicts it at
+checkout allows the marketplace to intervene: it can quote a more realistic
+delivery date, upgrade the shipping method, prompt the seller to dispatch
+immediately, or send a proactive courtesy message that manages the customer's
+expectations before those expectations are broken.
+
+In effect, the system predicts a customer-dissatisfaction event at the single
+moment when that event is still preventable.
+
+\section{Justification for the Dataset Choice}
+
+The Brazilian E-Commerce Public Dataset by Olist was selected over several
+alternatives for five specific reasons, each mapping directly onto a requirement
+of this project.
+
+\begin{enumerate}[leftmargin=*]
+
+\item \textbf{It is genuine commercial data, not a teaching set.} The data was
+released by Olist itself and covers real transactions between September 2016 and
+October 2018. It has been anonymised so thoroughly that company names appearing
+in customer review text were replaced with the names of Great Houses from
+\textit{Game of Thrones}. This provenance means the data carries the
+irregularities of a real operational system rather than the artificial
+cleanliness of a synthetic benchmark.
+
+\item \textbf{It contains authentic data-quality problems.} The dataset presents
+missing values across thirteen columns, 261{,}831 duplicate rows in the
+geolocation table, forty-two GPS coordinates that fall outside Brazil's national
+borders, and 775 orders with no line items attached. These are exactly the
+issues the project brief requires students to identify and resolve, and they
+occur naturally rather than being introduced artificially.
+
+\item \textbf{It presents a genuine data-leakage trap.} The raw data contains
+columns such as the actual delivery date and the customer's review score. A
+model given these columns would achieve near-perfect scores and be entirely
+useless in production, because neither value exists at the moment a prediction
+is required. Recognising and removing them is a substantive analytical
+contribution rather than a box-ticking exercise.
+
+\item \textbf{It supports meaningful feature engineering.} The dataset includes a
+geolocation table mapping Brazilian postcodes to latitude and longitude. Joining
+this table to both the seller and the customer allowed us to compute the
+physical distance a parcel must travel, a variable that does not exist anywhere
+in the raw files and which proved to be one of the model's most informative
+inputs.
+
+\item \textbf{It has an unambiguous business case with quantifiable value.} As
+established in Section 1.1, the link between late delivery and customer
+dissatisfaction is measurable and severe. This allows the value of the model to
+be argued in commercial terms rather than purely statistical ones.
+
+\end{enumerate}
+
+\section{How the Solution Adds Value}
+
+The deployed system converts a passive historical record into an active
+operational instrument. Three concrete benefits follow.
+
+\textbf{Targeted intervention rather than blanket policy.} Without a model, a
+marketplace can only apply uniform rules, such as padding every delivery estimate
+by three days. That degrades the customer experience for the 91.9\% of orders
+that would have arrived on time anyway. A per-order risk score allows resources
+to be concentrated on the minority of orders that actually need attention.
+
+\textbf{Quantified prioritisation.} The model returns a calibrated probability
+rather than a binary label. An order scored at 36\% is not merely ``risky'', it
+is 4.4 times riskier than the marketplace average, and that ratio can be used to
+rank a day's orders and allocate a limited operations budget rationally.
+
+\textbf{A measurable reduction in expected cost.} As documented in Section 5.5,
+the decision threshold was selected to minimise expected business cost. Against
+the current baseline of taking no action at all, the deployed configuration
+reduces expected cost by \textbf{28.9\%} on the held-out test set.
+
+%=============================================================================
+\chapter{Dataset Description and Source}
+%=============================================================================
+
+\section{Source and Licence}
+
+\begin{table}[H]
+\centering
+\caption{Dataset provenance}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Attribute} & \textbf{Value} \\
+\midrule
+Title & Brazilian E-Commerce Public Dataset by Olist \\
+Publisher & Olist Store (official public release) \\
+Platform & Kaggle \\
+URL & \url{https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce} \\
+Licence & CC BY-NC-SA 4.0 \\
+Period covered & September 2016 to October 2018 \\
+Total orders & 99{,}441 \\
+Tables & 9 relational CSV files \\
+Raw size & Approximately 120 MB \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\projfig{fig01_dataset_source}{0.95}{The dataset source page on Kaggle, showing
+the official Olist release, the usability rating and the CC BY-NC-SA 4.0
+licence under which the data is distributed.}
+
+\section{Structure of the Nine Tables}
+
+The data arrives as nine separate files in a normalised relational structure.
+Every table was audited before any transformation was applied.
+
+\begin{table}[H]
+\centering
+\caption{Inventory of the nine raw Olist tables}
+\begin{tabular}{@{}lrrl@{}}
+\toprule
+\textbf{Table} & \textbf{Rows} & \textbf{Columns} & \textbf{Contents} \\
+\midrule
+geolocation & 1{,}000{,}163 & 5 & Postcode to latitude/longitude mapping \\
+order\_items & 112{,}650 & 7 & One row per physical item purchased \\
+payments & 103{,}886 & 5 & Payment method and instalments \\
+customers & 99{,}441 & 5 & Customer location \\
+orders & 99{,}441 & 8 & Order status and five timestamps \\
+reviews & 99{,}224 & 7 & Customer review scores and text \\
+products & 32{,}951 & 9 & Category, weight and dimensions \\
+sellers & 3{,}095 & 4 & Seller location \\
+category\_translation & 71 & 2 & Portuguese to English category names \\
+\midrule
+\textbf{Total} & \textbf{1{,}550{,}922} & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\projfig{fig03_audit_inventory}{0.98}{Automated audit of the nine raw tables,
+reporting row counts, column counts and memory footprint, followed by the
+structure and status breakdown of the central \texttt{orders} table.}
+
+\section{Definition of the Target Variable}
+
+An order is defined as \textbf{late} when the date the customer actually
+received it falls after the delivery date they were promised at checkout:
+
+\begin{equation}
+\texttt{is\_late} =
+\begin{cases}
+1 & \text{if } \texttt{order\_delivered\_customer\_date} > \texttt{order\_estimated\_delivery\_date} \\
+0 & \text{otherwise}
+\end{cases}
+\end{equation}
+
+Only orders with a status of \texttt{delivered} and with both dates present can
+be labelled, since an order still in transit has no known outcome and a
+cancelled order was never delivered at all. This reduces the dataset as follows:
+
+\begin{table}[H]
+\centering
+\caption{Construction of the modelling population}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Filtering step} & \textbf{Orders} & \textbf{Retained} \\
+\midrule
+All orders in the dataset & 99{,}441 & 100.0\% \\
+Status equal to \texttt{delivered} & 96{,}478 & 97.0\% \\
+Both delivery dates present & 96{,}470 & 97.0\% \\
+Joined successfully to order items & 96{,}470 & 97.0\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Of these 96{,}470 orders, \textbf{7{,}826 (8.11\%)} arrived late. When an order
+is late, it is late by a median of 5.8 days, though the distribution has a long
+tail extending to 189 days.
+
+\projfig{fig05_audit_target}{0.92}{Verification that all four foreign-key
+relationships join at 100\%, that all primary keys are unique, and the resulting
+class balance of the target variable.}
+
+%=============================================================================
+\chapter{Exploratory Data Analysis}
+%=============================================================================
+
+\section{Data Quality Audit}
+
+The audit was performed as a read-only pass over the raw files, deliberately
+separated from any cleaning, so that decisions could be made with full knowledge
+of the data rather than reactively.
+
+\begin{table}[H]
+\centering
+\caption{Data-quality issues identified in the raw data}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Issue} & \textbf{Scale} & \textbf{Resolution} \\
+\midrule
+Missing review comment titles & 87{,}656 (88.3\%) & Column not used \\
+Missing review comment text & 58{,}247 (58.7\%) & Column not used \\
+Missing delivery dates & 2{,}965 (3.0\%) & Rows excluded, undeliverable \\
+Missing product attributes & 610 (1.9\%) & Imputed in pipeline \\
+Missing carrier dates & 1{,}783 (1.8\%) & Column excluded as leaky \\
+Duplicate geolocation rows & 261{,}831 (26.2\%) & Aggregated by median \\
+GPS points outside Brazil & 42 & Removed before aggregation \\
+Orders with no line items & 775 (0.78\%) & Excluded by inner join \\
+Order-value outliers & 7{,}658 (7.9\%) & Retained, genuine purchases \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\projfig{fig04_audit_missing}{0.9}{Missing-value profile across all nine tables
+and the duplicate-row count per table. The 26.2\% duplication in the
+geolocation table is expected: it stores many GPS readings per postcode.}
+
+\projfig{fig_eda_11_missing_values}{0.82}{Missing values remaining in the
+assembled analytical table. All are handled by imputation inside the modelling
+pipeline rather than by deleting rows.}
+
+\section{Key Observations}
+
+Ten observations emerged from the analysis. Each is reproduced below with the
+supporting evidence.
+
+\subsection{The problem is imbalanced, so accuracy is misleading}
+
+Only 8.11\% of delivered orders arrived late. A model that ignores its inputs
+entirely and always answers ``on time'' would achieve \textbf{91.9\% accuracy}
+while catching zero late deliveries. Accuracy is therefore an actively
+misleading headline metric for this problem, a point returned to in
+Section 5.2.
+
+\projfig{fig_eda_01_target_balance}{0.9}{Class distribution of the target
+variable. The rarity of the positive class is the single most important
+statistical property of this problem.}
+
+\subsection{Distance is strongly predictive}
+
+Orders travelling under 50 km are late 6.5\% of the time. Orders travelling
+beyond 1{,}500 km are late \textbf{13.1\%} of the time, roughly double the rate.
+This column did not exist in the raw data and was engineered from the
+geolocation table, as described in Section 4.1.
+
+\projfig{fig_eda_02_distance}{0.95}{The engineered distance feature. The left
+panel shows the distribution of journey lengths split by outcome; the right
+panel shows late rate rising monotonically with distance.}
+
+\subsection{A tight promise is a broken promise}
+
+Orders promised within seven days are late \textbf{31.3\%} of the time, against
+only 5.6\% for orders given between 31 and 60 days. The promised delivery window
+is legitimate as a model input because it is displayed to the customer on the
+checkout page and is therefore genuinely known at prediction time.
+
+\projfig{fig_eda_03_promise_window}{0.95}{Delivery performance against the length
+of the promise made at checkout. A generous promise is easy to keep; an
+aggressive one is not.}
+
+\subsection{Performance is highly unstable over time}
+
+The monthly late rate swings from 1.1\% in October 2016 to \textbf{21.4\%} in
+March 2018, a nineteen-fold difference around an overall average of 8.1\%. Two
+distinct disruptions are visible: a sharp Black Friday spike in November 2017
+reaching 14.3\%, roughly triple the preceding months, and a sustained
+deterioration through February and March 2018 whose cause is not recorded in
+the dataset. Because performance depends so heavily on when an order is placed,
+purchase month and week of year were provided to the model.
+
+\projfig{fig_eda_04_monthly_trend}{0.95}{Order volume and late-delivery rate by
+month. Order volume grows steadily while reliability fluctuates violently.}
+
+\subsection{Delivery reliability varies sharply by region}
+
+Alagoas records the highest late rate at \textbf{23.9\%}, while Rond\^onia is the
+most reliable at 2.9\%. States geographically distant from the S\~ao Paulo seller
+hub perform consistently worse, which is consistent with the distance finding in
+Section 3.2.2.
+
+\projfig{fig_eda_05_state_analysis}{0.95}{Late rate by destination state, and the
+relationship between average journey distance and reliability. Bubble size
+represents order volume.}
+
+\subsection{Product category matters}
+
+The \texttt{audio} category is late 13.1\% of the time against only 5.4\% for
+\texttt{luggage\_accessories}. Bulky and fragile categories are over-represented
+at the risky end of the distribution.
+
+\projfig{fig_eda_06_category_analysis}{0.82}{Riskiest and safest product
+categories among those with at least 300 orders.}
+
+\subsection{Money and size columns are heavily right-skewed}
+
+Order value has a median of R\$~86 but a maximum of R\$~13{,}440. In total 7{,}658
+orders (7.9\%) fall outside the conventional 1.5$\times$IQR range. These were
+deliberately retained rather than removed: they represent genuine high-value
+purchases, and the tree-based models selected for this problem are insensitive
+to monotonic skew.
+
+\projfig{fig_eda_07_distributions}{0.98}{Distribution of the principal numeric
+features, with the top 1\% trimmed for readability.}
+
+\projfig{fig_eda_08_outliers}{0.95}{Boxplots confirming the long right tail
+present in every money and size column.}
+
+\subsection{No single feature explains lateness on its own}
+
+The strongest linear relationships with the target are all weak:
+
+\begin{table}[H]
+\centering
+\caption{Strongest linear correlations with the target}
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Feature} & \textbf{Correlation} \\
+\midrule
+\texttt{distance\_km} & $+0.069$ \\
+\texttt{estimated\_delivery\_days} & $-0.060$ \\
+\texttt{same\_state} & $-0.056$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This is an important diagnostic
+finding rather than a disappointing one. Weak individual correlations predict
+that a linear model will struggle and that tree-based ensembles, which capture
+interactions between features, should perform substantially better. Section 5.3
+confirms this prediction directly.
+
+\projfig{fig_eda_09_correlation}{0.78}{Correlation matrix of numeric features
+against the target.}
+
+\subsection{The commercial justification}
+
+Orders delivered on time average 4.29 stars; late orders average 2.57. The share
+of one and two-star reviews rises from 9.2\% to \textbf{54.1\%}, an increase of
+5.9 times. This single relationship justifies the entire project.
+
+\projfig{fig_eda_10_review_impact}{0.95}{The commercial consequence of late
+delivery. The left panel shows the full distribution of review scores by
+outcome; the right panel isolates the share of severely negative reviews.}
+
+\subsection{Residual missing values are handled by imputation}
+
+After joining, fifteen columns still contain gaps, the largest being
+\texttt{avg\_photos\_qty} at 1.38\%. All are handled by imputation inside the
+modelling pipeline, never by deleting rows, so that no observation is discarded
+for a missing value in a secondary attribute.
+
+\projfig{fig08_eda_complete}{0.98}{Completion of the exploratory analysis, with
+the commercial finding and confirmation that eleven figures were written to
+disk.}
+
+%=============================================================================
+\chapter{Data Preprocessing}
+%=============================================================================
+
+\section{Assembling One Table from Nine}
+
+A machine-learning model requires a single flat table in which each row is one
+observation. The nine relational tables were therefore joined into one
+analytical table of \textbf{96{,}470 orders by 53 columns}.
+
+The join was not a simple merge. The \texttt{order\_items} table contains one row
+per physical item, so an order containing three products appears three times. To
+produce one row per order, item-level data was aggregated: item counts, distinct
+seller counts, total price, total freight, total weight and maximum item value.
+For attributes that cannot be summed, such as the product category, the value
+was taken from the \textbf{most expensive item} in the order, on the reasoning
+that this item dominates packaging, handling and routing.
+
+\projfig{fig07_build_dataset}{0.98}{Construction of the analytical table:
+geolocation cleaning, the four-way join, distance computation and the resulting
+96{,}470 by 53 table.}
+
+\section{Feature Engineering}
+
+Fifteen features were derived that do not exist in the raw data.
+
+\subsection{The distance feature}
+
+The most substantial contribution is \texttt{distance\_km}, the physical distance
+between seller and buyer. Constructing it required three steps.
+
+First, the geolocation table's 1{,}000{,}163 GPS readings were filtered to
+Brazil's true bounding box, removing forty-two coordinates that placed Brazilian
+postcodes in other continents. Second, the surviving readings were collapsed to
+one representative point per postcode using the \textbf{median} rather than the
+mean, so that a small number of erroneous readings could not drag a postcode's
+position. This reduced one million rows to 19{,}010 unique postcodes. Third, the
+great-circle distance between the seller's postcode and the customer's postcode
+was computed using the haversine formula:
+
+\begin{equation}
+d = 2r \arcsin\left(\sqrt{\sin^{2}\left(\frac{\phi_2-\phi_1}{2}\right) +
+\cos\phi_1 \cos\phi_2 \sin^{2}\left(\frac{\lambda_2-\lambda_1}{2}\right)}\right)
+\end{equation}
+
+where $\phi$ denotes latitude, $\lambda$ denotes longitude and $r$ is the Earth's
+radius of 6{,}371 km. The haversine formula is required rather than simple
+subtraction because the Earth is a sphere: one degree of longitude represents a
+very different ground distance near the poles than at the equator.
+
+Distance was successfully computed for \textbf{99.51\%} of orders, with a median
+journey of 434 km and a maximum of 3{,}398 km.
+
+\subsection{Remaining engineered features}
+
+\begin{table}[H]
+\centering
+\caption{Features engineered from the raw data}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Group} & \textbf{Feature} & \textbf{Rationale} \\
+\midrule
+Geography & \texttt{distance\_km} & Physical journey length \\
+ & \texttt{same\_state} & Intra-state deliveries avoid transfers \\
+ & \texttt{is\_sao\_paulo\_seller} & Proximity to the logistics hub \\
+\midrule
+Time & \texttt{purchase\_month} & Seasonal courier congestion \\
+ & \texttt{purchase\_week\_of\_year} & Captures Black Friday precisely \\
+ & \texttt{purchase\_day\_of\_week} & Weekday dispatch patterns \\
+ & \texttt{purchase\_hour} & Cut-off times for same-day dispatch \\
+ & \texttt{purchase\_is\_weekend} & Reduced weekend operations \\
+\midrule
+Promise & \texttt{estimated\_delivery\_days} & Length of the commitment made \\
+\midrule
+Money & \texttt{freight\_ratio} & Shipping cost relative to value \\
+ & \texttt{price\_per\_item} & Average item value \\
+ & \texttt{freight\_per\_kg} & Shipping service level proxy \\
+\midrule
+Logistics & \texttt{multi\_seller\_order} & Multiple dispatch points \\
+ & \texttt{weight\_per\_item\_g} & Handling difficulty \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Preventing Data Leakage}
+
+\subsection{What data leakage is}
+
+Data leakage occurs when a model is given information that would not be
+available at the moment the prediction is required. The analogy is a student who
+sees the examination answers in advance: the resulting score is excellent and
+entirely meaningless, because the conditions under which it was obtained will
+never recur.
+
+\subsection{The governing rule}
+
+A single rule was applied throughout: \textbf{the model may only use facts the
+marketplace knows at the instant the customer clicks Buy.} Any column recorded
+afterwards is prohibited without exception.
+
+\begin{table}[H]
+\centering
+\caption{Columns excluded to prevent data leakage}
+\begin{tabular}{@{}p{6.2cm}p{7.2cm}@{}}
+\toprule
+\textbf{Column excluded} & \textbf{Reason} \\
+\midrule
+\texttt{order\_delivered\_customer\_date} & The target is constructed from it \\
+\texttt{order\_delivered\_carrier\_date} & Recorded days after checkout \\
+\texttt{order\_approved\_at} & Recorded once payment clears \\
+\texttt{order\_estimated\_delivery\_date} & Retained only as a derived duration \\
+\texttt{order\_status} & Known only once the order concludes \\
+\texttt{actual\_delivery\_days} & Derived from the actual delivery date \\
+\texttt{days\_late} & Literally the answer \\
+\texttt{review\_score} & Written by the customer after delivery \\
+\texttt{purchase\_year} & Would not generalise to future orders \\
+identifier columns & Random codes carry no signal \\
+city columns & Over 4{,}000 values would explode the encoding \\
+postcode columns & Latitude and longitude capture location better \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\projfig{fig06_audit_leakage}{0.95}{The data-leakage policy, generated
+automatically by the audit script so that the exclusions are documented in code
+rather than asserted in prose.}
+
+\subsection{A subtle case worth stating explicitly}
+
+The feature \texttt{estimated\_delivery\_days}, the number of days between
+purchase and the promised delivery date, might superficially appear to be
+leakage because the target is defined relative to that same promised date. It is
+not. The promised date is calculated by the marketplace and displayed to the
+customer on the checkout page \textit{before} payment is taken. It is therefore
+genuinely available at prediction time. The question the model answers is
+whether the promise that was made will be kept, and the ambitiousness of that
+promise is legitimately part of the answer.
+
+\projfig{fig09_feature_policy}{0.95}{The complete feature policy: excluded
+columns with reasons, the thirty numeric and four categorical features retained,
+and the explicit note regarding the promised delivery window.}
+
+\section{The Preprocessing Pipeline}
+
+All preprocessing is implemented as a scikit-learn \texttt{Pipeline} rather than
+as free-standing transformations. Numeric and categorical columns follow
+separate paths that execute in parallel through a \texttt{ColumnTransformer}.
+
+\begin{table}[H]
+\centering
+\caption{Preprocessing applied by column type}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Step} & \textbf{Numeric (30 columns)} & \textbf{Categorical (4 columns)} \\
+\midrule
+Missing values & Median imputation & Constant, ``missing'' \\
+Transformation & Standard scaling & One-hot encoding \\
+Unseen values & Not applicable & Grouped as infrequent \\
+Rare categories & Not applicable & Merged below 30 occurrences \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two choices merit explanation.
+
+\textbf{Median imputation} was preferred to the mean because the money columns
+are heavily right-skewed, and a mean would be dragged upward by a small number
+of very large orders.
+
+\textbf{One-hot encoding was configured to tolerate unseen categories.} The
+encoder is created with the following option:
+
+\begin{lstlisting}[language=Python]
+OneHotEncoder(handle_unknown="infrequent_if_exist", min_frequency=30)
+\end{lstlisting}
+
+This ensures the deployed application cannot crash when a user selects a product
+category the model never saw during training; such values are routed to a
+``rare'' bucket instead of raising an exception. This behaviour is verified
+explicitly by the smoke test described in Section 7.5.
+
+\section{Train and Test Split}
+
+The data was divided into 80\% training and 20\% testing using a
+\textbf{stratified} split, which preserves the 8.11\% positive rate in both
+halves so that the test set is neither easier nor harder than the training set.
+
+\begin{table}[H]
+\centering
+\caption{Train and test split}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Partition} & \textbf{Orders} & \textbf{Late rate} \\
+\midrule
+Training & 77{,}176 & 8.11\% \\
+Test (held out) & 19{,}294 & 8.11\% \\
+\midrule
+\textbf{Total} & \textbf{96{,}470} & \textbf{8.11\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Critically, \textbf{every preprocessing step is fitted on the training partition
+only}. The medians used for imputation, the means and standard deviations used
+for scaling, and the category vocabulary used for encoding are all learned from
+training data and then merely applied to the test data. Because these steps live
+inside the pipeline object, this separation is enforced structurally rather than
+depending on the analyst remembering to maintain it. During cross-validation the
+entire pipeline is refitted within each fold, so no fold is ever influenced by
+another fold's statistics.
+
+\projfig{fig10_train_test_split}{0.95}{The stratified split and the explicit
+statement of how leakage is prevented at the preprocessing stage.}
+
+%=============================================================================
+\chapter{Model Training and Evaluation}
+%=============================================================================
+
+\section{Models Selected}
+
+Three models were trained. The selection is deliberately one model per
+\textbf{algorithm family}, so that the comparison tests genuinely different
+approaches rather than padding the results table with near-identical variants.
+
+\begin{table}[H]
+\centering
+\caption{Models compared and the rationale for each}
+\begin{tabular}{@{}lp{4.1cm}p{5.6cm}@{}}
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{Why it earns its place} \\
+\midrule
+Logistic Regression & Linear & The honest baseline. Without it, no claim about
+the value of the ensembles can be substantiated \\
+Random Forest & Bagging & Independent trees vote; handles non-linear
+interactions and provides feature importances \\
+Gradient Boosting & Boosting & Sequential error correction; typically the
+strongest family on tabular data \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three further models were considered and \textbf{deliberately rejected}, and the
+reasoning is recorded here because a defensible exclusion is as informative as
+an inclusion. A support vector machine with a radial basis kernel would require
+hours to train on 77{,}176 rows and would not be expected to outperform gradient
+boosting. K-nearest neighbours degrades badly in the sixty-plus dimensions
+produced by one-hot encoding, a well-understood consequence of the curse of
+dimensionality. A standalone decision tree is strictly dominated by the random
+forest, which is itself an ensemble of decision trees. Adding any of these would
+have lengthened the results table without adding information.
+
+All three models were configured with \texttt{class\_weight="balanced"} so that
+the rare late-delivery class is weighted in proportion to its scarcity.
+Without this, all three models converge on the degenerate solution of always
+predicting ``on time''.
+
+\section{Evaluation Metrics and Why They Are Appropriate}
+
+Because only 8.11\% of orders are late, metric selection is not a formality. The
+following metrics were computed, and each answers a different question.
+
+\begin{table}[H]
+\centering
+\caption{Evaluation metrics and their interpretation}
+\begin{tabular}{@{}lp{9.3cm}@{}}
+\toprule
+\textbf{Metric} & \textbf{Question it answers} \\
+\midrule
+Accuracy & What proportion of all predictions were correct? Reported for
+completeness only; a constant ``on time'' model scores 91.9\% \\
+Precision & Of the orders we flagged, how many really were late? Low precision
+means wasted intervention effort \\
+Recall & Of the orders that really were late, how many did we catch? Low recall
+means dissatisfied customers we never saw coming \\
+F1 & The harmonic mean of precision and recall \\
+ROC-AUC & How well does the model \textit{rank} orders from safe to risky across
+all possible cut-offs? Used as the primary model-selection metric \\
+PR-AUC & As above but focused solely on the rare positive class, making it the
+more honest summary under class imbalance \\
+Brier score & How far are the printed probabilities from observed reality?
+Used to evaluate calibration in Section 5.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{ROC-AUC was selected as the primary metric} because the operational task
+is prioritisation: given a day's orders and a limited operations budget, which
+should be examined first? That is a ranking problem, and ROC-AUC measures ranking
+quality independently of any particular threshold.
+
+\textbf{Recall is treated as the primary business metric.} The asymmetry is
+established directly by the exploratory analysis. A missed late delivery
+attracts a one or two-star review 54.1\% of the time. A false alarm costs one
+courtesy email. Failing to detect a genuine problem is materially more expensive
+than investigating one that turns out to be fine.
+
+\section{Performance Comparison}
+
+All three models were assessed on the same held-out 19{,}294 orders that none of
+them saw during training, and additionally under five-fold stratified
+cross-validation on the training partition.
+
+\begin{table}[H]
+\centering
+\caption{Model performance on the held-out test set}
+\label{tab:comparison}
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+\textbf{Model} & \textbf{Acc.} & \textbf{Prec.} & \textbf{Recall} & \textbf{F1}
+& \textbf{ROC-AUC} & \textbf{PR-AUC} & \textbf{CV AUC} \\
+\midrule
+\textbf{Gradient Boosting} & 0.777 & 0.219 & 0.686 & 0.332 & \textbf{0.810} &
+\textbf{0.336} & 0.806 \\
+Random Forest & 0.845 & 0.273 & 0.551 & 0.365 & 0.799 & 0.330 & 0.794 \\
+Logistic Regression & 0.657 & 0.144 & 0.655 & 0.236 & 0.710 & 0.183 & 0.712 \\
+\midrule
+\textit{Always ``on time''} & \textit{0.919} & --- & \textit{0.000} & --- &
+\textit{0.500} & \textit{0.081} & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table \ref{tab:comparison} contains the most important single line in this
+report, and it is the last one. \textbf{A model that ignores every input and
+always answers ``on time'' achieves 91.9\% accuracy, higher than any of our three
+trained models, while catching precisely zero late deliveries.} This is why
+accuracy was not used to select the model, and why any report quoting accuracy
+alone on an imbalanced problem should be treated with suspicion.
+
+The cross-validation standard deviation was below 0.006 for all three models,
+indicating that the performance differences are stable rather than artefacts of
+a fortunate split.
+
+\projfig{fig11_model_comparison}{0.95}{Model comparison as generated by the
+training script, including the degenerate baseline for reference.}
+
+\projfig{fig_model_01_roc_pr_curves}{0.95}{ROC and precision-recall curves for
+all three models. The precision-recall curve is the more informative of the two
+under class imbalance, since it ignores the abundant negative class.}
+
+The exploratory analysis predicted this outcome. Section 3.2.8 observed that no
+individual feature correlates strongly with the target, from which it follows
+that a linear model would struggle and that ensembles capturing feature
+interactions would perform substantially better. The measured gap between
+logistic regression (0.710) and the two ensembles (0.799 and 0.810) confirms
+that prediction quantitatively.
+
+\section{Probability Calibration}
+
+\subsection{The problem discovered}
+
+The winning model ranked orders well but printed probabilities that were simply
+wrong. Because \texttt{class\_weight="balanced"} instructs the model to treat the
+rare class as though it were common, every predicted probability was inflated.
+
+The average predicted probability across the test set was \textbf{36.0\%} against
+a true late rate of \textbf{8.11\%}, an overstatement of roughly
+\textbf{4.4 times}. Inspected by band, orders the model scored between 30\% and
+40\% were in reality late only 3.4\% of the time.
+
+This mattered because the project brief requires the application to display
+prediction probability. Displaying a number that is wrong by a factor of four
+would have been misleading to the user.
+
+\subsection{The correction applied}
+
+\textbf{Isotonic regression} was fitted using five-fold cross-validation via
+\texttt{CalibratedClassifierCV}. Isotonic regression learns a monotonic mapping
+from the model's raw scores onto the frequencies actually observed. Because the
+mapping is monotonic, the ranking of orders is preserved exactly, which is why
+ROC-AUC is unaffected.
+
+\begin{table}[H]
+\centering
+\caption{Effect of isotonic calibration}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Measure} & \textbf{Raw model} & \textbf{Calibrated} & \textbf{Truth} \\
+\midrule
+Mean predicted probability & 0.3600 & \textbf{0.0813} & 0.0811 \\
+Brier score (lower is better) & 0.1595 & \textbf{0.0633} & --- \\
+ROC-AUC & 0.8099 & 0.8101 & --- \\
+PR-AUC & 0.3355 & 0.3354 & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The mean predicted probability moved to within 0.0002 of the true rate and the
+Brier score fell by 60\%, while ROC-AUC and PR-AUC were unchanged to three
+decimal places. Discrimination was preserved and honesty was gained.
+
+\projfig{fig12_calibration}{0.92}{Detection and correction of the probability
+inflation.}
+
+\projfig{fig_model_05_calibration}{0.95}{Reliability curve before and after
+calibration. The calibrated line follows the diagonal closely, meaning a
+displayed probability of 20\% corresponds to approximately one order in five
+genuinely arriving late.}
+
+\section{Selecting the Decision Threshold}
+
+A classifier outputs a probability, not a decision. Converting one into the
+other requires a threshold, and that choice is a business decision rather than a
+statistical one.
+
+Two conventional options were rejected. The default of 0.5 is arbitrary and
+particularly inappropriate when one class is rare. Maximising the F1 score is
+also arbitrary, because F1 implicitly assumes that a missed late delivery and a
+false alarm carry equal cost, which directly contradicts the evidence in
+Section 3.2.9.
+
+Instead the threshold was chosen to minimise expected business cost:
+
+\begin{equation}
+\text{Cost}(t) = R \times \text{FN}(t) + 1 \times \text{FP}(t)
+\end{equation}
+
+where $t$ is the threshold, FN and FP are false negatives and false positives at
+that threshold, and $R$ expresses how many false alarms one missed late delivery
+is worth. Rather than invent a currency figure, a sensitivity analysis was
+performed across plausible values of $R$.
+
+\begin{table}[H]
+\centering
+\caption{Sensitivity of the optimal threshold to the assumed cost ratio}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Cost ratio $R$} & \textbf{Optimal threshold} & \textbf{Recall} &
+\textbf{Precision} \\
+\midrule
+3 : 1 & 0.23 & 0.380 & 0.386 \\
+\textbf{5 : 1 (shipped)} & \textbf{0.15} & \textbf{0.532} & \textbf{0.304} \\
+10 : 1 & 0.12 & 0.613 & 0.267 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Comparison of candidate thresholds at $R=5$}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{Strategy} & \textbf{Threshold} & \textbf{Prec.} & \textbf{Recall} &
+\textbf{F1} & \textbf{Cost} \\
+\midrule
+Flag nothing (current practice) & --- & --- & 0.000 & --- & 7{,}825 \\
+Default 0.50 & 0.50 & 0.639 & 0.069 & 0.125 & 7{,}346 \\
+Maximum F1 & 0.18 & 0.332 & 0.479 & 0.392 & 5{,}590 \\
+\textbf{Minimum cost (shipped)} & \textbf{0.15} & \textbf{0.304} &
+\textbf{0.532} & \textbf{0.387} & \textbf{5{,}563} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The shipped threshold of \textbf{0.155} reduces expected cost by \textbf{28.9\%}
+relative to taking no action. Note that maximising F1 would have selected a
+higher cut-off and caught meaningfully fewer late deliveries, which is the
+correct choice only under the assumption that a false alarm is as damaging as a
+dissatisfied customer.
+
+\projfig{fig13_threshold_choice}{0.95}{Threshold selection driven by expected
+business cost, with sensitivity analysis across three cost ratios.}
+
+\projfig{fig_model_04_threshold_choice}{0.95}{The cost curve is notably flat near
+its minimum, indicating the choice is robust to moderate errors in the assumed
+cost ratio.}
+
+\projfig{fig_model_02_confusion_matrix}{0.95}{Confusion matrices at the default
+and tuned thresholds.}
+
+\section{Justification for the Selected Model}
+
+\textbf{Gradient Boosting was selected}, on the following grounds.
+
+\textbf{Highest ranking quality.} At 0.810 ROC-AUC it leads Random Forest (0.799)
+and decisively outperforms Logistic Regression (0.710). Since the operational
+task is prioritisation, ranking quality is the correct primary criterion.
+
+\textbf{Highest recall at equivalent operating points.} At the default threshold
+it achieves 0.686 recall against Random Forest's 0.551, and recall is the metric
+the business asymmetry favours.
+
+\textbf{Stability.} Cross-validation standard deviation of 0.0035 is the lowest
+of the three models.
+
+\textbf{Deployment characteristics.} The serialised pipeline occupies 1.14 MB,
+comfortably below Hugging Face's inline file limit, and returns a prediction in
+well under a second on free CPU hardware.
+
+\textbf{Native handling of missing values.} \texttt{HistGradientBoostingClassifier}
+handles gaps internally, providing a second line of defence behind the
+pipeline's imputation.
+
+\projfig{fig_model_03_feature_importance}{0.9}{Permutation importance for the
+selected model, measured as the drop in ROC-AUC when each column is randomly
+shuffled. The engineered \texttt{distance\_km} feature appears among the top six
+inputs despite not existing in the raw data.}
+
+\section{Honest Limitations}
+
+\textbf{Precision is 0.304.} Roughly seven in every ten flagged orders would in
+fact have arrived on time. This is acceptable only because the intervention is
+inexpensive; a courtesy email costs far less than the one-star review that 54\%
+of genuinely late deliveries attract. Should intervention costs rise, the
+threshold should be raised with them, and Section 5.5 provides the analysis
+needed to do so.
+
+\textbf{The model reflects 2016 to 2018 courier conditions.} Logistics networks
+change, and the model would require periodic retraining in genuine operational
+use.
+
+\textbf{The February to March 2018 disruption is unexplained.} The model learns
+the pattern without understanding its cause, and would not anticipate a similar
+future event arising from different circumstances.
+
+\textbf{Seller-level history was excluded.} A seller's past punctuality would
+almost certainly improve predictions, but computing it safely requires
+time-aware aggregation to avoid reintroducing leakage. It is recorded here as
+future work rather than attempted unsafely.
+
+\textbf{ROC-AUC of 0.810 indicates good ranking, not certainty.} The system is
+decision support, not an oracle.
+
+%=============================================================================
+\chapter{Model Saving}
+%=============================================================================
+
+The final model was serialised with \texttt{joblib}, which is preferred to plain
+\texttt{pickle} for scikit-learn objects because it stores large NumPy arrays
+efficiently.
+
+\begin{lstlisting}[language=Python,caption={Saving the complete pipeline}]
+import joblib
+joblib.dump(best_model, "model.joblib", compress=3)
+\end{lstlisting}
+
+The critical design decision is \textbf{what} was saved. Rather than storing the
+classifier alone and reimplementing preprocessing inside the application, the
+entire pipeline was saved as one object:
+
+\begin{center}
+\texttt{imputer $\rightarrow$ scaler $\rightarrow$ one-hot encoder $\rightarrow$
+gradient boosting $\rightarrow$ isotonic calibrator}
+\end{center}
+
+This has three consequences. The application requires no preprocessing code of
+its own, so preprocessing cannot drift out of step with the model. Deployment
+involves one file rather than four that must be kept mutually consistent. And
+the exact transformations applied at training time are guaranteed to be applied
+at prediction time, because they are literally the same fitted objects.
+
+Alongside the model, \texttt{model\_metadata.json} records the decision
+threshold, the feature list, all performance metrics and the exact library
+versions used for training, so that the deployed application never hard-codes a
+number that could silently diverge from the model.
+
+\begin{table}[H]
+\centering
+\caption{Saved model artefacts}
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{File} & \textbf{Contents} & \textbf{Size} \\
+\midrule
+\texttt{model.joblib} & Complete fitted pipeline & 1.14 MB \\
+\texttt{model\_metadata.json} & Threshold, features, metrics, versions & 4 KB \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\projfig{fig14_model_saved}{0.95}{The per-class classification report at the
+shipped threshold, followed by model serialisation.}
+
+\projfig{fig16_model_file}{0.85}{The saved artefacts on disk.}
+
+%=============================================================================
+\chapter{Application Development}
+%=============================================================================
+
+\section{Architecture}
+
+The application is a single-page web application backed by a Python API, served
+from one process.
+
+\begin{center}
+\begin{tabular}{@{}c@{}}
+\fbox{\begin{minipage}{0.86\textwidth}
+\centering
+\vspace{2mm}
+\textbf{Browser} \\
+React 19 + TypeScript, deck.gl WebGL map, GLSL shader background \\
+$\downarrow$ \texttt{fetch("/api/...")} $\uparrow$ \\
+\textbf{Server} \\
+FastAPI + Uvicorn (\texttt{app.py}) \\
+$\downarrow$ \\
+\textbf{Model} \\
+\texttt{model.joblib}: full pipeline with isotonic calibration
+\vspace{2mm}
+\end{minipage}}
+\end{tabular}
+\end{center}
+
+The model executes server-side because browsers cannot run Python, and because
+this keeps the model file itself off the user's machine. The frontend is
+compiled to static files at build time and served by the same FastAPI process,
+so the entire application occupies one container listening on one port.
+
+\begin{table}[H]
+\centering
+\caption{API endpoints}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Endpoint} & \textbf{Method} & \textbf{Purpose} \\
+\midrule
+\texttt{/api/config} & GET & Dropdown options, route distances, model metadata \\
+\texttt{/api/dashboard} & GET & Filtered aggregates over all 96{,}470 orders \\
+\texttt{/api/predict} & POST & Score one order \\
+\texttt{/api/health} & GET & Liveness check used by the container \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{The Dashboard}
+
+The dashboard presents analytics across the full historical dataset, with four
+filters that update every visualisation simultaneously. Aggregation is performed
+server-side, so the browser receives a few hundred numbers rather than a
+three-megabyte data file.
+
+\projfig{fig18_app_dashboard_top}{0.98}{The dashboard: filters, five key
+performance indicators, the monthly trend and the map of Brazil.}
+
+\projfig{fig19_app_dashboard_map}{0.98}{The WebGL choropleth rendered with
+deck.gl. Hovering any state reveals its late rate, order volume, typical journey
+distance and revenue. Colour encodes late rate; circle size encodes volume.}
+
+\projfig{fig20_app_dashboard_charts}{0.98}{The three risk drivers and the
+commercial impact panel, reproducing the exploratory findings interactively.}
+
+\projfig{fig21_app_dashboard_filtered}{0.98}{Filtering demonstrated. Restricting
+to the three remote northern states raises the observed late rate from 8.11\% to
+14.65\% and the typical journey from 434 km to 2{,}290 km. Unselected states are
+dimmed on the map.}
+
+\section{The Prediction Interface}
+
+The prediction form collects twelve inputs and derives the thirty-four features
+the model requires. This asymmetry is deliberate: a user should not be asked to
+supply a freight-to-weight ratio when it can be computed from values they have
+already entered.
+
+Four presets are provided that land in each of the four risk bands, allowing the
+full behaviour of the model to be demonstrated in four clicks.
+
+\projfig{fig22_predict_low}{0.98}{A low-risk order: a local delivery with a
+generous twenty-day promise scores 1.4\%, which is 0.17 times the marketplace
+average. All three drivers are favourable.}
+
+\projfig{fig23_predict_high}{0.98}{A high-risk order: the same local route, but
+promised in six days, scores 22.3\%. The tight promise alone moves the order
+across the action threshold.}
+
+\projfig{fig24_predict_veryhigh}{0.98}{A very high-risk order: S\~ao Paulo to
+Amazonas, 2{,}693 km, promised in twelve days, during Black Friday week. The
+score of 36.0\% is 4.44 times the marketplace average, and the interface
+explains each contributing factor.}
+
+\section{Model Transparency}
+
+A dedicated tab exposes how the model was built, including the full comparison
+table, feature importances, the leakage policy and the honest limitations. This
+was included so that the application does not present itself as an
+unquestionable authority.
+
+\projfig{fig25_app_model_insights}{0.98}{The model insights tab: headline
+metrics, the three-model comparison and permutation importances.}
+
+\projfig{fig26_app_leakage_limitations}{0.98}{The leakage policy, the calibration
+explanation and the honest statement of the model's limitations, all surfaced to
+the end user.}
+
+\projfig{fig27_app_about}{0.98}{Project background, the six-step method, dataset
+provenance, technology stack and team.}
+
+\section{Local Testing}
+
+Before any deployment, the application was tested locally and the saved model was
+verified independently by an automated smoke test covering four scenarios.
+
+\begin{table}[H]
+\centering
+\caption{Smoke test coverage}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Test} & \textbf{Verifies} & \textbf{Result} \\
+\midrule
+Load & \texttt{model.joblib} deserialises & Pass \\
+Predict & Accepts a hand-written order & Pass \\
+Rank & Risky order scores above safe order & Pass, 36.9\% vs 0.3\% \\
+Robustness & Unseen category does not crash & Pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The fourth test is the most important for deployment safety. It submits a
+product category and a state code that do not exist in the training data,
+confirming that the encoder routes them to its ``rare'' bucket rather than
+raising an exception that would return a server error to a live user.
+
+\projfig{fig17_app_terminal}{0.95}{The application running locally on port
+7860.}
+
+\projfig{fig15_smoke_test}{0.95}{All four smoke tests passing against the saved
+model.}
+
+%=============================================================================
+\chapter{Deployment on Hugging Face Spaces}
+%=============================================================================
+
+\section{Choice of Space Type}
+
+Hugging Face Spaces offers Gradio, Streamlit, Static and Docker runtimes. The
+\textbf{Docker} SDK was selected because the application is a FastAPI server
+paired with a compiled React bundle, a combination none of the pre-built
+runtimes support.
+
+Configuration is declared in the YAML frontmatter of \texttt{README.md}, which
+Hugging Face reads on every push:
+
+\begin{lstlisting}[caption={Space configuration in README.md}]
+---
+title: Olist Delivery Risk Radar
+emoji:
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+license: cc-by-nc-sa-4.0
+short_description: Predicting late delivery risk for Brazilian e-commerce
+---
+\end{lstlisting}
+
+\projfig{fig34_hf_space_create_form}{0.9}{Creating the Space with the Docker SDK
+on free CPU hardware and public visibility.}
+
+\section{The Container Build}
+
+A two-stage Dockerfile is used. The first stage uses a Node image purely to
+compile the React application. The second stage begins from a clean Python image
+and copies only the compiled output across, so that Node and its 146 npm
+packages never reach the runtime image.
+
+\begin{table}[H]
+\centering
+\caption{Files deployed to the Space}
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{File} & \textbf{Purpose} & \textbf{Size} \\
+\midrule
+\texttt{app.py} & FastAPI backend and static server & 20.6 KB \\
+\texttt{model.joblib} & Trained pipeline & 1.14 MB \\
+\texttt{model\_metadata.json} & Threshold, features, metrics & 4 KB \\
+\texttt{app\_config.json} & Route distances, dropdown options & 9.8 KB \\
+\texttt{dashboard\_data.parquet} & 96{,}470 orders, 16 columns & 2.93 MB \\
+\texttt{requirements.txt} & Pinned Python dependencies & 1 KB \\
+\texttt{README.md} & Space configuration and documentation & 7.8 KB \\
+\texttt{Dockerfile} & Build instructions & 3.7 KB \\
+\midrule
+\textbf{Total} & & \textbf{4.11 MB} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Dependency versions are pinned exactly. A model serialised by scikit-learn 1.9.0
+may refuse to deserialise under a different version, so pinning guarantees the
+Space runs precisely the libraries that trained the model.
+
+\projfig{fig36_hf_manual_push}{0.95}{The first push to the Space, uploading all
+eighteen Git LFS objects.}
+
+\projfig{fig37_hf_build_logs}{0.98}{The Docker build completing: React compiled
+in 5.83 seconds, Python dependencies installed, model and data copied, image
+pushed.}
+
+\section{Verification of the Deployed Application}
+
+\begin{table}[H]
+\centering
+\caption{Verification against the live URL}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Check} & \textbf{Expected} & \textbf{Observed} \\
+\midrule
+\texttt{/api/health} & Model name and row count & Gradient Boosting, 96{,}470 \\
+\texttt{/api/dashboard} & Aggregates match analysis & 8.11\% late, 27 states \\
+\texttt{/api/predict} & Matches local prediction & 36.0\%, 4.44$\times$, 2{,}692.7 km \\
+Frontend & Renders without errors & No console errors \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The prediction returned by the live Space is \textbf{identical} to the one
+produced locally, confirming that the pipeline survived serialisation, Git LFS
+transfer, container build and network delivery without alteration.
+
+\projfig{fig39_hf_space_files}{0.98}{The Space file listing, showing all deployed
+files and the eleven-commit history mirrored from GitHub.}
+
+\projfig{fig38_hf_space_live}{0.98}{The deployed application running publicly on
+Hugging Face Spaces, with the browser address bar visible. The status indicator
+beside the Space name reads \emph{Running}.}
+
+%=============================================================================
+\chapter{GitHub Repository}
+%=============================================================================
+
+\section{Repository Structure}
+
+\begin{lstlisting}[caption={Repository layout}]
+olist-delivery-risk/
+|
++-- app.py                      FastAPI backend and static file server
++-- model.joblib                Complete pipeline (Git LFS)
++-- model_metadata.json         Metrics, threshold, feature list
++-- app_config.json             State coordinates, route distances
++-- dashboard_data.parquet      96,470 orders, 16 columns (Git LFS)
++-- requirements.txt            Deployment dependencies, pinned
++-- requirements-dev.txt        Adds plotting and the Streamlit prototype
++-- Dockerfile                  Two-stage build
++-- .dockerignore
++-- .gitattributes              LF line endings, LFS tracking
++-- .gitignore
++-- README.md                   Space config and documentation
++-- streamlit_app.py            Earlier prototype, retained as fallback
+|
++-- frontend/                   React + TypeScript source
+|   +-- src/components/         Dashboard, Predict, ModelInsights,
+|   |                           About, BrazilMap, ShaderBackground
+|   +-- src/assets/             Simplified Brazil GeoJSON (118 KB)
+|   +-- package.json, vite.config.ts, tsconfig.json
+|
++-- src/                        Machine-learning pipeline, in run order
+|   +-- 01_data_audit.py        Inspect the nine raw tables
+|   +-- 02_build_dataset.py     Join tables, engineer features
+|   +-- 03_eda.py               Eleven figures, ten observations
+|   +-- 04_train_models.py      Train, calibrate, threshold, save
+|   +-- 05_smoke_test.py        Verify the saved model
+|   +-- 06_build_app_assets.py  Compress data for deployment
+|   +-- 07_simplify_geojson.py  Douglas-Peucker map simplification
+|   +-- utils.py                Shared paths and helpers
+|
++-- reports/figures/            Sixteen analysis figures
++-- data/raw/                   Kaggle CSVs (gitignored, 120 MB)
+|
++-- .github/workflows/
+    +-- deploy.yml              Automated deployment
+\end{lstlisting}
+
+Two exclusions are deliberate. The 120 MB of raw Kaggle data is not committed,
+since data belongs in a data store rather than in version control and the README
+documents how to obtain it. Compiled frontend output is not committed either,
+because it is regenerated by every build and a stale committed bundle could
+otherwise ship by accident.
+
+\projfig{fig30_github_repo_root}{0.98}{The public repository.}
+
+\projfig{fig32_github_workflows_folder}{0.9}{The workflow directory.}
+
+\section{Version Control Practice}
+
+The project history comprises eleven commits, each representing a coherent stage
+of work with a message explaining the reasoning rather than restating the diff.
+
+\projfig{fig31_github_commit_history}{0.98}{Commit history.}
+
+\projfig{fig29_git_push_output}{0.95}{Initial push to GitHub.}
+
+Binary files are tracked with \textbf{Git LFS}. This became necessary rather than
+optional: Hugging Face rejects any push containing binary files inline. Eighteen
+files were migrated, rewriting history so that binaries never appear inline in
+any commit.
+
+%=============================================================================
+\chapter{Automated Deployment with GitHub Actions}
+%=============================================================================
+
+\section{How the Automated Deployment Works}
+
+GitHub Actions is an automation service built into GitHub. A workflow file
+describes a checklist, and GitHub executes that checklist automatically on a
+chosen trigger. The complete deployment sequence is:
+
+\begin{enumerate}[leftmargin=*]
+\item A developer pushes a commit to the \texttt{main} branch.
+\item GitHub detects the push and starts the workflow.
+\item \textbf{Job 1, validate.} A fresh Ubuntu machine installs the pinned
+Python dependencies, loads \texttt{model.joblib} and runs the smoke test, starts
+the FastAPI server and polls \texttt{/api/health} until it answers, then installs
+the npm packages and compiles the React application. Any failure stops the
+workflow here.
+\item \textbf{Job 2, deploy.} Only if every validation step passed, a second
+machine checks out the full history including LFS content, reads the Hugging
+Face token from the encrypted secret store, uploads the LFS objects and force
+pushes the repository to the Space.
+\item Hugging Face detects the new commit, rebuilds the Docker image and
+restarts the container.
+\item The updated application is live, typically within four minutes of the
+original push.
+\end{enumerate}
+
+No human touches Hugging Face at any point after the initial Space creation.
+
+\projfig{fig40_workflow_file}{0.98}{The workflow file in the repository.}
+
+\section{Why Validation Precedes Deployment}
+
+The two-job structure is the most consequential design decision in the pipeline.
+A single-job workflow that merely pushed files would deploy a broken application
+to a public URL, where the failure would be discovered by whoever opened it
+next.
+
+By gating deployment behind \texttt{needs: validate}, a defect fails on the
+build machine and the live Space is left untouched, still serving the last
+known-good version. The practical value of this is demonstrated directly by the
+run history in Section 9.4.
+
+\section{Secure Credential Handling}
+
+The project brief requires that the Hugging Face token must not be hard-coded.
+Three measures were applied.
+
+\textbf{The token is stored as an encrypted GitHub Actions secret.} Once saved,
+it cannot be read back by anyone, including the person who created it. The
+interface displays only its name.
+
+\textbf{The token is fine-grained.} Rather than a general write token with
+authority over the entire Hugging Face account, a scoped token was issued with
+read and write permission on \textbf{one repository only}. Even in the event of
+compromise, the blast radius is a single Space that can be rebuilt in minutes.
+This is the principle of least privilege.
+
+\textbf{The token never appears in the repository.} The workflow references it
+only as \texttt{\$\{\{ secrets.HF\_TOKEN \}\}}, and GitHub automatically masks the
+value in all logs. A search of the complete repository history confirms no
+token literal has ever been committed.
+
+\projfig{fig35_github_secret_added}{0.92}{The encrypted secret. Only the name and
+last-updated time are visible; the value cannot be retrieved.}
+
+\section{Testing Automatic Deployment}
+
+To satisfy Task 4.4, a deliberately visible change was made: a green badge
+reading ``Auto-deployed by GitHub Actions'' was added to the application header.
+The change was chosen so that its presence on the live site is unambiguous
+evidence that the pipeline works.
+
+\projfig{fig41_visible_change_commit}{0.98}{The commit containing the visible
+change.}
+
+\projfig{fig42_actions_run_success}{0.98}{The successful workflow execution. Both
+jobs completed in one minute and eight seconds, and the custom job summary
+reports the destination Space.}
+
+\projfig{fig43_actions_deploy_steps}{0.98}{The deployment job in detail. The
+expanded step shows eighteen LFS objects uploaded and the commit range
+\texttt{613b08e..a55447c} pushed to the Space. The credential is masked
+automatically.}
+
+\projfig{fig44_hf_space_updated}{0.98}{The live Space carrying the new badge. No
+person uploaded this change to Hugging Face.}
+
+\begin{table}[H]
+\centering
+\caption{Timeline of the automated deployment}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Time} & \textbf{Event} \\
+\midrule
+14:41 & Commit \texttt{a55447c} pushed to \texttt{main} \\
+14:42 & Workflow run \#6 begins \\
+14:43 & Both jobs complete successfully (1m 8s) \\
+14:44 & Space serves the newly compiled bundle \\
+14:45 & Badge visible on the public URL \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Objective confirmation is provided by the compiled bundle filename, which changed
+from \texttt{index-BmV02qjo.js} to \texttt{index-DaqtONgO.js}. The Space is
+serving a file that did not exist before the push and that no person uploaded.
+
+\section{Evidence That the Validation Gate Is Real}
+
+The Actions history contains six runs, and the pattern is more informative than
+a single success would be.
+
+\begin{table}[H]
+\centering
+\caption{Complete workflow run history}
+\begin{tabular}{@{}clllc@{}}
+\toprule
+\textbf{Run} & \textbf{Commit} & \textbf{Validate} & \textbf{Deploy} &
+\textbf{Reason} \\
+\midrule
+1 & \texttt{d57ea57} & Pass & Fail & No secret, Space not yet created \\
+2 & \texttt{90668fb} & Pass & Fail & Secret still absent \\
+3 & \texttt{ae0b503} & Pass & Fail & Secret still absent \\
+4 & \texttt{eafd62d} & Pass & Fail & Secret still absent \\
+5 & \texttt{613b08e} & Pass & Fail & Secret still absent \\
+\textbf{6} & \texttt{a55447c} & \textbf{Pass} & \textbf{Pass} &
+\textbf{Secret configured} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Validation passed on every single run, including the five that failed to deploy.
+Every failure occurred at the deployment step and for a correctly diagnosed
+reason. This demonstrates that the gate is functional rather than decorative:
+the pipeline consistently distinguished ``the code is sound'' from ``the
+deployment credentials are absent''.
+
+\projfig{fig45_actions_history}{0.98}{The full run history, showing the
+progression from failing deployments to a complete success once the secret was
+configured.}
+
+%=============================================================================
+\chapter{Challenges and Resolutions}
+%=============================================================================
+
+Four substantive problems arose during development. Each is recorded with its
+diagnosis and resolution.
+
+\section{Predicted Probabilities Were Inflated Fourfold}
+
+\textbf{Problem.} Class weighting caused the model to overstate every
+probability by roughly 4.4 times. Orders scored between 30\% and 40\% were in
+reality late only 3.4\% of the time.
+
+\textbf{Why it mattered.} The brief requires the application to display
+prediction probability. Displaying a number wrong by a factor of four would
+have misinformed the user.
+
+\textbf{Resolution.} Isotonic calibration, documented in Section 5.4. The Brier
+score improved by 60\% while ROC-AUC remained unchanged.
+
+\section{The Threshold Logic Contradicted the Evidence}
+
+\textbf{Problem.} The initial implementation selected the threshold by
+maximising F1, while the accompanying analysis argued that recall matters more
+than precision. These two positions are mutually inconsistent, because F1 treats
+false negatives and false positives as equally costly.
+
+\textbf{Resolution.} Replaced with explicit cost minimisation and a sensitivity
+analysis across three cost ratios, documented in Section 5.5.
+
+\section{Hugging Face Rejected Binary Files}
+
+\textbf{Problem.} The first push to the Space was rejected because it contained
+binary files inline. Six files exceeded the platform's threshold.
+
+\textbf{Resolution.} Eighteen binary files were migrated to Git LFS, rewriting
+history so that no commit contains an inline binary.
+
+\textbf{A consequential secondary defect.} The migration introduced a fault that
+would have broken deployment silently. \texttt{actions/checkout} does not fetch
+LFS content by default; it downloads small text pointer files instead. The build
+machine would therefore have attempted to load a model file whose contents were
+a few lines of text, and the Space would have received a placeholder rather than
+a working model. The fault was identified before deployment and corrected by
+setting \texttt{lfs: true} on both checkout steps and by uploading LFS objects
+explicitly, so that any future failure reports plainly rather than manifesting
+as a corrupt model.
+
+\section{A Credential Was Captured in a Screenshot}
+
+\textbf{Problem.} During documentation, a screenshot inadvertently captured the
+Hugging Face access token in plain text at the moment of creation.
+
+\textbf{Resolution.} The exposure was identified during a review pass. A search
+of the complete repository history confirmed the token had never been committed
+and the screenshots directory is excluded from version control, so the exposure
+was limited to a single local file. The token was revoked, a replacement issued,
+and the screenshot removed from the documentation set. The incident is recorded
+here because credential handling is an explicit requirement of the brief, and
+because the correct response to an exposed secret is to revoke it rather than to
+hope it goes unnoticed.
+
+%=============================================================================
+\chapter{Conclusion}
+%=============================================================================
+
+\section{Summary}
+
+This project delivered a complete machine-learning system, from nine raw
+relational tables to a publicly accessible application that redeploys itself
+automatically.
+
+\begin{table}[H]
+\centering
+\caption{Summary of outcomes}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Dimension} & \textbf{Outcome} \\
+\midrule
+Dataset & 96{,}470 orders assembled from nine tables \\
+Engineered features & 15, including haversine seller-buyer distance \\
+Models compared & 3, one per algorithm family \\
+Selected model & Gradient Boosting, ROC-AUC 0.810 \\
+Calibration & Isotonic; Brier improved 60\% \\
+Threshold & 0.155, minimising expected cost \\
+Expected cost reduction & 28.9\% versus no action \\
+Application & React and WebGL frontend, FastAPI backend \\
+Deployment & Docker Space on Hugging Face \\
+Automation & GitHub Actions, validated before deploy \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Reflection}
+
+Three lessons stand out.
+
+\textbf{The most valuable feature did not exist in the data.} Distance had to be
+constructed by joining a million GPS readings to both ends of every order.
+Feature engineering, not model selection, produced the largest single gain.
+
+\textbf{A model can rank well and still be wrong.} Discrimination and calibration
+are independent properties. Our model achieved good ranking while printing
+probabilities inflated fourfold, and only measuring calibration exposed it.
+
+\textbf{Deployment is where the real defects appear.} The model trained without
+incident. The genuine problems were binary file handling, LFS pointer
+resolution, metadata validation and credential hygiene. The two-job validation
+gate proved its value on five separate occasions.
+
+\section{Future Work}
+
+\textbf{Seller reliability history} would likely be the single most valuable
+addition, computed with time-aware aggregation so that no order sees information
+from its own future.
+
+\textbf{Scheduled retraining} would keep the model aligned with changing courier
+performance, using the existing workflow extended with a periodic trigger.
+
+\textbf{Monitoring} for input drift and prediction-distribution shift would
+detect degradation before it reaches customers.
+
+\textbf{Threshold tuning per region} could account for the wide variation in
+baseline reliability between states.
+
+%=============================================================================
+\appendix
+\chapter{Project Links and Reproduction}
+%=============================================================================
+
+\section{Deliverable Links}
+
+\begin{table}[H]
+\centering
+\caption{Project deliverables}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Resource} & \textbf{URL} \\
+\midrule
+GitHub repository &
+\url{https://github.com/moikukreja/olist-delivery-risk} \\
+Hugging Face Space &
+\url{https://huggingface.co/spaces/samuelalex37/olist-delivery-risk} \\
+Dataset &
+\url{https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The Space runs on free hardware and sleeps after forty-eight hours of
+inactivity. If it displays ``Starting'', the container is waking rather than
+rebuilding and will be available within approximately thirty seconds.
+
+\section{Reproducing the Results}
+
+The raw data is not committed. After downloading the nine CSV files from Kaggle
+into \texttt{data/raw/}, the complete pipeline can be reproduced in order:
+
+\begin{lstlisting}[caption={Reproduction sequence}]
+python -m venv venv
+venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+
+venv\Scripts\python.exe src\01_data_audit.py
+venv\Scripts\python.exe src\02_build_dataset.py
+venv\Scripts\python.exe src\03_eda.py
+venv\Scripts\python.exe src\04_train_models.py
+venv\Scripts\python.exe src\05_smoke_test.py
+venv\Scripts\python.exe src\06_build_app_assets.py
+
+venv\Scripts\python.exe -m uvicorn app:app --port 7860
+cd frontend && npm install && npm run build
+\end{lstlisting}
+
+A fresh clone must run \texttt{git lfs pull} before use, otherwise the model and
+data files will be present only as LFS pointers.
+
+\section{Environment}
+
+\begin{table}[H]
+\centering
+\caption{Software versions used}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Component} & \textbf{Version} \\
+\midrule
+Python & 3.11.9 \\
+scikit-learn & 1.9.0 \\
+pandas & 3.0.5 \\
+NumPy & 2.4.6 \\
+FastAPI & 0.139.2 \\
+React & 19.1.0 \\
+deck.gl & 9.3.7 \\
+Docker base image & python:3.11-slim \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\projfig{fig02_project_structure}{0.85}{The project directory as organised
+during development.}
+
+\projfig{fig28_github_new_repo}{0.95}{Repository creation on GitHub.}
+
+\projfig{fig33_actions_validate_passed}{0.98}{An early workflow run in which
+validation passed while deployment failed for want of the secret, demonstrating
+the gate operating as intended.}
+
+\end{document}
