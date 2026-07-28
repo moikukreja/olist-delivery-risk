@@ -124,9 +124,16 @@ def main() -> int:
 
     api = HfApi(token=config.token())
 
-    mlflow.set_tracking_uri(f"file:{Path('mlruns').resolve().as_posix()}")
+    # MLflow 3.14 put the old ./mlruns filesystem store into maintenance mode
+    # and now refuses to use it. SQLite is the supported replacement: still a
+    # single self-contained file, no server to run, but on the actively
+    # maintained code path. Both the database and the artefacts are uploaded by
+    # the workflow so the experiment history outlives the disposable runner.
+    tracking_db = Path("mlflow.db").resolve()
+    mlflow.set_tracking_uri(f"sqlite:///{tracking_db.as_posix()}")
     mlflow.set_experiment("olist-delivery-risk")
-    print(f"  MLflow tracking to ./mlruns (uploaded as a build artefact)")
+    print(f"  MLflow tracking to {tracking_db.name} (uploaded as a build artefact)")
+    print(f"  View it later with:  mlflow ui --backend-store-uri sqlite:///mlflow.db")
 
     # ---- read the frozen split from the Hub -------------------------------
     base = f"hf://datasets/{config.DATASET_REPO}"

@@ -33,3 +33,9 @@ joblib==1.5.3
 # file-based tracking all work identically. To browse the downloaded artefact
 # afterwards, install full mlflow locally and run:  mlflow ui --backend-store-uri ./mlruns
 mlflow-skinny==3.14.0
+
+# MLflow 3.14 retired the old ./mlruns filesystem store, so tracking now goes
+# to a local SQLite database. mlflow-skinny does not pull these two in itself,
+# and their absence only shows up on a clean machine.
+sqlalchemy==2.0.51
+alembic==1.18.5

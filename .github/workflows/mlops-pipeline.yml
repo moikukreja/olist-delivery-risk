@@ -133,16 +133,20 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: python mlops/train.py
 
-      # The runner is destroyed when the job ends, taking ./mlruns with it.
-      # Uploading it as an artefact means the experiment history survives and
-      # can be downloaded and opened with `mlflow ui` afterwards.
+      # The runner is destroyed when the job ends, taking the tracking database
+      # with it. Uploading it as an artefact means the experiment history
+      # survives and can be downloaded and browsed afterwards with:
+      #   mlflow ui --backend-store-uri sqlite:///mlflow.db
       - name: Upload the MLflow experiment history
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mlflow-tracking
-          path: mlruns/
+          path: |
+            mlflow.db
+            mlartifacts/
           retention-days: 30
+          if-no-files-found: warn
 
       - name: Upload the trained artefacts
         if: always()
