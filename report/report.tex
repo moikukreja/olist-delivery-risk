@@ -1927,9 +1927,11 @@ promotion was not requested, which is the intended default.}
 \chapter{Challenges and Resolutions}
 %=============================================================================
 
-Eight substantive problems arose during development. Each is recorded with its
+Nine substantive problems arose during development. Each is recorded with its
 diagnosis and resolution, because the resolutions are more instructive than a
-narrative in which nothing went wrong.
+narrative in which nothing went wrong. One is recorded together with the two
+incorrect diagnoses that preceded it, since how a fault was misread is part of
+what the fault has to teach.
 
 \section{Predicted Probabilities Were Inflated Fourfold}
 
@@ -2023,6 +2025,45 @@ here because credential handling is an explicit requirement of the brief, and
 because the correct response to an exposed secret is to revoke it rather than to
 hope it goes unnoticed.
 
+\section{A Rate Limit That Presented as an Authentication Failure}
+
+\textbf{Problem.} A deployment failed at the step that uploads binaries to the
+Space. The job reported \texttt{LFS: Rate limit exceeded} against Hugging Face's
+LFS batch endpoint. The upload command carried \texttt{-{}-all}, which offers
+every binary object in the repository on every run, and several pushes had
+landed within the same afternoon.
+
+\textbf{Why it mattered.} The validation job had passed, so the repository
+recorded a successful build while the Space silently remained a commit behind.
+A deployment that is advertised as automatic but quietly stops deploying is
+worse than one that never claimed to be automatic, because nothing prompts
+anyone to look.
+
+\textbf{The diagnosis was wrong twice before it was right.} The failure was
+first attributed to a revoked access token, then to a token whose repository
+scope had been narrowed. Both hypotheses were plausible: a token had genuinely
+been revoked earlier in the project, and a push from a developer machine
+succeeded while the same push from the runner failed. Neither was correct. The
+local push had used a different, broader credential held in the operating
+system's credential store, so the comparison that appeared to isolate the CI
+token was measuring two different secrets. The job log named the true cause in
+one line and was decisive from the outset. Reasoning from indirect evidence
+while the direct evidence sat unread cost more time than the defect itself.
+
+\textbf{Resolution.} The upload is retried twice with a growing pause. A rate
+limit is a request to wait rather than grounds to abandon a deployment. If all
+three attempts fail the step still exits non-zero, and it does so before the
+reference is pushed, so a deployment whose binaries did not upload is never
+presented as successful. The \texttt{-{}-all} flag was dropped in favour of
+naming the branch, which offers what the deployment actually requires; on a
+single-branch repository this is a modest reduction, and the retry is what makes
+the step survive. Lock verification was disabled because Hugging Face does not
+implement the LFS locking API and the resulting warning appeared immediately
+above the lines that matter when the step fails. The retry logic was exercised
+against a substituted \texttt{git} covering success at the first attempt,
+success after two failures, and exhaustion of all three. The fix was confirmed
+by a subsequent commit that deployed automatically end to end.
+
 %=============================================================================
 \chapter{Conclusion}
 %=============================================================================
@@ -2070,8 +2111,9 @@ probabilities inflated fourfold, and only measuring calibration exposed it.
 
 \textbf{Deployment is where the real defects appear.} The model trained without
 incident. The genuine problems were binary file handling, LFS pointer
-resolution, metadata validation, four incomplete dependency declarations, and
-credential hygiene. Not one of them was a modelling problem.
+resolution, metadata validation, four incomplete dependency declarations,
+platform rate limiting, and credential hygiene. Not one of them was a modelling
+problem.
 
 \textbf{A working development machine proves almost nothing.} Four separate
 faults were invisible locally because a package happened to be installed as an
