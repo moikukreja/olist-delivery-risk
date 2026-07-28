@@ -31,6 +31,7 @@ from huggingface_hub import HfApi, create_repo
 from huggingface_hub.utils import RepositoryNotFoundError
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cards  # noqa: E402
 import config  # noqa: E402
 
 LOCAL_PARQUET = (
@@ -94,6 +95,27 @@ def main() -> int:
             print("      venv\\Scripts\\python.exe mlops\\data_register.py")
             return 1
         print("  Present. Nothing to upload.")
+
+    # ---- publish the dataset card -----------------------------------------
+    # The card is not decoration. Its frontmatter declares three separate
+    # configurations, which stops the Hub viewer concatenating the full table
+    # with the train/test partitions derived from it and reporting 192,940 rows
+    # for a dataset that contains 96,470 orders.
+    print("\n  Publishing the dataset card...")
+    try:
+        api.upload_file(
+            path_or_fileobj=cards.DATASET_CARD.encode("utf-8"),
+            path_in_repo="README.md",
+            repo_id=config.DATASET_REPO,
+            repo_type="dataset",
+            commit_message="Add dataset card declaring separate configurations",
+        )
+        print("  Published. The viewer will now show each configuration separately.")
+    except Exception as exc:
+        code = config.explain_permission_error(exc, config.DATASET_REPO, "dataset")
+        if code >= 0:
+            return code
+        raise
 
     # ---- report what the repository now holds -----------------------------
     files = api.list_repo_files(repo_id=config.DATASET_REPO, repo_type="dataset")

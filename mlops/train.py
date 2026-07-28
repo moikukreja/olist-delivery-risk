@@ -49,6 +49,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cards  # noqa: E402
 import config  # noqa: E402
 
 
@@ -246,6 +247,7 @@ def main() -> int:
             },
             "registered_from": "mlops/train.py",
             "dataset_repo": config.DATASET_REPO,
+            "model_repo": config.MODEL_REPO,
         }
         metadata_path = work / config.METADATA_FILE
         metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
@@ -277,6 +279,17 @@ def main() -> int:
             commit_message=message,
         )
         print(f"  Uploaded {name:<24} {path.stat().st_size / 1024:>8,.0f} KB")
+
+    # The card is generated from THIS run's metrics, so it can never describe a
+    # model other than the one sitting beside it.
+    api.upload_file(
+        path_or_fileobj=cards.model_card(metadata).encode("utf-8"),
+        path_in_repo="README.md",
+        repo_id=config.MODEL_REPO,
+        repo_type="model",
+        commit_message=f"Model card for {message}",
+    )
+    print(f"  Uploaded {'README.md (model card)':<24}")
 
     config.banner("STAGE 3 COMPLETE")
     print(f"  Model    : {best_name}")
