@@ -1291,7 +1291,14 @@ download the results.
 
 The CSV columns are deliberately identical to the twelve fields the web form
 collects, so anyone who can use the form already understands the file format. A
-correctly formatted template is downloadable from within the application.
+correctly formatted template of twelve example orders is downloadable from
+within the application. Its first four rows are the four presets from the
+single-order form; the remaining eight were chosen to span the input space ---
+all four payment types, same-state and cross-country routes, single and
+multi-seller orders, parcels from 300~g to 12~kg, and promises from eight to
+eighteen days --- so that a user opening the template sees the full range of
+inputs the endpoint accepts. Scored together they fall across all four risk
+bands, five low through four very high.
 
 \begin{table}[H]
 \centering
@@ -1313,8 +1320,10 @@ same \texttt{build\_features} routine that converts twelve user inputs into the
 thirty-four model columns. Had they been implemented separately, the two would
 eventually have drifted and begun returning different answers for the same
 order. Sharing the function makes that impossible by construction, and it was
-verified directly: the four template rows score 1.4\%, 11.7\%, 36.0\% and
-22.3\%, exactly matching the four presets on the single-order form.
+verified directly: the first four template rows score 1.4\%, 11.7\%, 36.0\% and
+22.3\%, exactly matching the four presets on the single-order form. Keeping
+those four rows at the head of the template in form order is deliberate, so the
+check can be repeated by eye at any time.
 
 \textbf{Rows are validated individually.} A single malformed line reports its
 own row number and is skipped; the rest of the file still scores. The

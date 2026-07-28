@@ -521,8 +521,22 @@ MAX_BATCH_ROWS = 20_000
 
 @app.get("/api/predict/batch/template")
 def batch_template() -> Response:
-    """Download a small, correctly formatted example CSV."""
+    """
+    Download a small, correctly formatted example CSV.
+
+    The first four rows are the four presets from the single-order form, in the
+    same order. Keeping them first is what makes the two prediction paths
+    checkable against each other by eye: score this file and rows 1-4 must
+    reproduce the four percentages the form shows.
+
+    The remaining eight rows exist to exercise the format rather than the
+    presets - every payment type, same-state and cross-country routes, single
+    and multi-seller orders, light and heavy parcels, generous and tight
+    promises - so that a user opening the template sees the range of inputs the
+    endpoint accepts instead of four near-identical São Paulo orders.
+    """
     example = pd.DataFrame([
+        # ---- the four single-order presets, in form order --------------------
         {"order_id": "ORD-0001", "seller_state": "SP", "customer_state": "SP",
          "promised_days": 20, "category": "housewares", "order_value": 90.0,
          "freight_value": 17.0, "weight_grams": 750, "item_count": 1,
@@ -543,6 +557,47 @@ def batch_template() -> Response:
          "freight_value": 28.0, "weight_grams": 1200, "item_count": 1,
          "seller_count": 1, "payment_type": "credit_card", "installments": 3,
          "purchase_date": "2018-08-20"},
+        # ---- eight further rows covering the rest of the input space ---------
+        {"order_id": "ORD-0005", "seller_state": "MG", "customer_state": "RJ",
+         "promised_days": 15, "category": "books_general_interest",
+         "order_value": 65.0, "freight_value": 14.0, "weight_grams": 500,
+         "item_count": 2, "seller_count": 1, "payment_type": "boleto",
+         "installments": 1, "purchase_date": "2018-04-10"},
+        {"order_id": "ORD-0006", "seller_state": "SP", "customer_state": "RS",
+         "promised_days": 18, "category": "bed_bath_table", "order_value": 310.0,
+         "freight_value": 46.0, "weight_grams": 4200, "item_count": 3,
+         "seller_count": 2, "payment_type": "credit_card", "installments": 6,
+         "purchase_date": "2018-03-05"},
+        {"order_id": "ORD-0007", "seller_state": "RS", "customer_state": "BA",
+         "promised_days": 9, "category": "furniture_decor", "order_value": 720.0,
+         "freight_value": 98.0, "weight_grams": 12000, "item_count": 1,
+         "seller_count": 1, "payment_type": "credit_card", "installments": 10,
+         "purchase_date": "2018-01-22"},
+        {"order_id": "ORD-0008", "seller_state": "PR", "customer_state": "CE",
+         "promised_days": 14, "category": "electronics", "order_value": 199.0,
+         "freight_value": 35.0, "weight_grams": 900, "item_count": 1,
+         "seller_count": 1, "payment_type": "debit_card", "installments": 1,
+         "purchase_date": "2018-05-18"},
+        {"order_id": "ORD-0009", "seller_state": "RJ", "customer_state": "RJ",
+         "promised_days": 10, "category": "perfumery", "order_value": 45.0,
+         "freight_value": 9.0, "weight_grams": 300, "item_count": 1,
+         "seller_count": 1, "payment_type": "voucher", "installments": 1,
+         "purchase_date": "2018-07-03"},
+        {"order_id": "ORD-0010", "seller_state": "SP", "customer_state": "PA",
+         "promised_days": 8, "category": "watches_gifts", "order_value": 540.0,
+         "freight_value": 61.0, "weight_grams": 600, "item_count": 1,
+         "seller_count": 1, "payment_type": "credit_card", "installments": 8,
+         "purchase_date": "2017-11-24"},
+        {"order_id": "ORD-0011", "seller_state": "SC", "customer_state": "SP",
+         "promised_days": 16, "category": "sports_leisure", "order_value": 158.0,
+         "freight_value": 24.0, "weight_grams": 2600, "item_count": 2,
+         "seller_count": 2, "payment_type": "credit_card", "installments": 4,
+         "purchase_date": "2018-02-14"},
+        {"order_id": "ORD-0012", "seller_state": "DF", "customer_state": "GO",
+         "promised_days": 12, "category": "computers_accessories",
+         "order_value": 129.0, "freight_value": 18.0, "weight_grams": 800,
+         "item_count": 1, "seller_count": 1, "payment_type": "boleto",
+         "installments": 1, "purchase_date": "2018-06-28"},
     ])
     return Response(
         content=example.to_csv(index=False),

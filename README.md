@@ -111,8 +111,11 @@ columns: distance, probability, risk tier, flag, lift versus average, and the
 recommended action.
 
 Both paths share one feature-building function, so they cannot drift apart. The
-four template rows score 1.4% / 11.7% / 36.0% / 22.3% — identical to the four
-presets on the single-order form.
+downloadable template holds twelve example orders spanning all four payment
+types, same-state and cross-country routes, and every risk band. Its first four
+rows score 1.4% / 11.7% / 36.0% / 22.3% — identical to the four presets on the
+single-order form, which keeps the two paths checkable against each other by
+eye.
 
 The batch endpoint is a plain HTTP API, so it works from a scheduled job too:
 
