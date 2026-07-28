@@ -151,12 +151,40 @@ jobs:
 
           SPACE_URL="https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}"
 
+          # Hugging Face does not implement the Git LFS file-locking API, so
+          # git-lfs prints a warning about it on every single push. Nothing here
+          # relies on locking, and the warning sits directly above the lines that
+          # matter when this step fails, so it is turned off to keep the log
+          # readable.
+          git config lfs.locksverify false
+
           # Upload the LFS binaries first. Hugging Face rejects any push that
           # carries binary files inline, so model.joblib, dashboard_data.parquet
           # and the report figures all travel through LFS. Doing this explicitly
           # rather than relying on the pre-push hook means a failure here is
           # reported clearly instead of surfacing later as a corrupt model.
-          git lfs push --all "$SPACE_URL" main
+          #
+          # The retry is not defensive padding. Hugging Face rate-limits the LFS
+          # batch endpoint per account, and this step asks it about every binary
+          # in the repository on every run. A deploy failed outright with
+          # "LFS: Rate limit exceeded" purely because several pushes landed close
+          # together within one afternoon. A rate limit is a request to wait, not
+          # an error to abandon the deployment over, so the step waits and asks
+          # again before giving up.
+          #
+          # --all was dropped alongside this. It pushes every object on every
+          # ref; naming the branch pushes what this deployment actually needs.
+          for attempt in 1 2 3; do
+            if git lfs push "$SPACE_URL" main; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::LFS push failed three times. If the log above says 'Rate limit exceeded', the token and permissions are fine - wait a few minutes and re-run this job."
+              exit 1
+            fi
+            echo "LFS push attempt ${attempt} failed. Waiting $((attempt * 60))s before retrying."
+            sleep $((attempt * 60))
+          done
 
           # --force is required, not lazy. The GitHub repository and the Space
           # repository were created separately and share no common ancestor, so
