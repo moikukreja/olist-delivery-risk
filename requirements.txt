@@ -16,6 +16,13 @@ fastapi==0.139.2
 uvicorn[standard]==0.51.0
 pydantic==2.13.4
 
+# Required by the batch-upload endpoint. FastAPI parses multipart form data -
+# which is how a browser sends an uploaded file - through this library, and
+# raises at import time if a route declares File() without it being present.
+# It arrived as an indirect dependency locally, so its absence only surfaced on
+# a clean CI machine.
+python-multipart==0.0.32
+
 # --- machine learning + data ------------------------------------------------
 scikit-learn==1.9.0
 pandas==3.0.5
