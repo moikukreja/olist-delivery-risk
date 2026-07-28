@@ -280,7 +280,7 @@ names.
 
 ## Team
 
-Kartik Joshi · Prem Kukreja · Samuel Alex · Gagandeep Singh · Aditya Chitale
+Kartik Joshi · Prem Kukreja · Samuel Alex · Gagandeep Singh · Aditya Chitale · Karan Baid
 
 **Software Development for AI Models** — Instructor: Prof. JP Agarwal
 Masters in AI with Business

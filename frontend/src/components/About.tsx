@@ -13,6 +13,7 @@ const TEAM = [
   "Samuel Alex",
   "Gagandeep Singh",
   "Aditya Chitale",
+  "Karan Baid",
 ];
 
 const GITHUB_URL = "https://github.com/moikukreja/olist-delivery-risk";

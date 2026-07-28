@@ -750,6 +750,7 @@ Licence: CC BY-NC-SA 4.0
 - Samuel Alex
 - Gagandeep Singh
 - Aditya Chitale
+- Karan Baid
 
 #### Course
 
