@@ -186,8 +186,10 @@ jobs:
   # -------------------------------------------------------------------------
   # Summary - always runs, so the Actions page explains what happened
   # -------------------------------------------------------------------------
+  # GitHub renders the step summary under a heading of "<job name> summary",
+  # so naming this job "Pipeline summary" produced "Pipeline summary summary".
   summary:
-    name: "Pipeline summary"
+    name: "Run"
     needs: [register-dataset, data-prep, model-training, deploy-hosting]
     if: always()
     runs-on: ubuntu-latest

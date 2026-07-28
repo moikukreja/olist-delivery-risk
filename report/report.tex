@@ -1274,6 +1274,100 @@ the end user.}
 \projfig{fig27_app_about}{0.98}{Project background, the six-step method, dataset
 provenance, technology stack and team.}
 
+\section{Batch Prediction}
+
+\subsection{Why a second prediction mode was needed}
+
+The single-order form suits a call-centre agent checking one customer. It is
+useless to an operations team facing a morning's five thousand orders. A model
+that can only be consulted one record at a time is a lookup tool; a model that
+can score a whole day's trading before any of it ships is an operational
+instrument.
+
+A second mode was therefore added: upload a CSV, score every row in one pass,
+download the results.
+
+\subsection{Design}
+
+The CSV columns are deliberately identical to the twelve fields the web form
+collects, so anyone who can use the form already understands the file format. A
+correctly formatted template is downloadable from within the application.
+
+\begin{table}[H]
+\centering
+\caption{The batch prediction endpoints}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Endpoint} & \textbf{Method} & \textbf{Purpose} \\
+\midrule
+\texttt{/api/predict/batch} & POST & Score an uploaded CSV \\
+\texttt{/api/predict/batch/template} & GET & Download a formatted example \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three design decisions are worth recording.
+
+\textbf{Single and batch prediction share one function.} Both paths call the
+same \texttt{build\_features} routine that converts twelve user inputs into the
+thirty-four model columns. Had they been implemented separately, the two would
+eventually have drifted and begun returning different answers for the same
+order. Sharing the function makes that impossible by construction, and it was
+verified directly: the four template rows score 1.4\%, 11.7\%, 36.0\% and
+22.3\%, exactly matching the four presets on the single-order form.
+
+\textbf{Rows are validated individually.} A single malformed line reports its
+own row number and is skipped; the rest of the file still scores. The
+alternative, rejecting the entire upload because one date was mistyped, would
+be infuriating on a five-thousand-row file.
+
+\textbf{The whole batch is scored in one vectorised call} rather than a loop of
+single predictions. On two thousand orders this is the difference between
+0.4~seconds and several minutes.
+
+\subsection{Output}
+
+Each row gains six columns: the computed journey distance, the calibrated
+probability as a decimal and as a percentage, the risk tier, a binary flag, the
+multiple of average risk, and the recommended action. Any \texttt{order\_id},
+\texttt{customer\_id}, \texttt{reference} or \texttt{notes} column present in
+the upload is carried through untouched so results can be joined back to the
+operations team's own records.
+
+\projfig{fig49_batch_upload}{0.98}{Batch prediction. Five hundred orders scored
+in one pass, with the risk breakdown across the four bands, revenue behind the
+flagged orders quantified, and two deliberately malformed rows reported by line
+number while the remaining rows scored normally.}
+
+\subsection{Programmatic access}
+
+Because the feature is an HTTP endpoint rather than a browser-only control, the
+same functionality is available to a scheduled job:
+
+\begin{lstlisting}[language=Python,caption={Scoring a file from Python}]
+import requests
+
+with open("orders.csv", "rb") as fh:
+    response = requests.post(
+        "https://samuelalex37-olist-delivery-risk.hf.space/api/predict/batch",
+        files={"file": fh},
+    )
+
+result = response.json()
+print(result["summary"])
+\end{lstlisting}
+
+Every endpoint is documented interactively at \texttt{/docs}, generated
+automatically from the server code so the documentation cannot fall out of date
+with the implementation.
+
+A note on framework choice. The reference material for this feature proposed
+Gradio, on the reasonable grounds that a Gradio application is automatically
+exposed as an API. That benefit does not apply here: FastAPI already publishes
+an OpenAPI specification and interactive documentation for every route.
+Introducing Gradio would have added a second user-interface framework alongside
+React to obtain something the existing stack already provided.
+
 \section{Local Testing}
 
 Before any deployment, the application was tested locally and the saved model was
@@ -1616,11 +1710,200 @@ progression from failing deployments to a complete success once the secret was
 configured.}
 
 %=============================================================================
+\chapter{The Automated MLOps Pipeline}
+%=============================================================================
+
+\section{Why a Second Workflow Exists}
+
+The workflow described in Chapter 10 deploys the \textit{application}. It does
+not retrain the \textit{model}. Those are different activities with different
+risk profiles, and conflating them causes two problems.
+
+First, retraining on every commit would produce a slightly different model each
+time. Every performance figure quoted in this report would then stop matching
+the live application, and a reader checking the deployed system against the
+document would find they disagree.
+
+Second, most commits change the frontend. Attaching a fifteen-minute training
+run to a two-line CSS change wastes both time and the repository's allocation of
+compute minutes.
+
+The project therefore has two workflows with clearly separated
+responsibilities.
+
+\begin{table}[H]
+\centering
+\caption{The two workflows and their responsibilities}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Workflow} & \textbf{Trigger} & \textbf{Responsibility} \\
+\midrule
+\texttt{deploy.yml} & Every push to \texttt{main} & Ships the application \\
+\texttt{mlops-pipeline.yml} & Manual or scheduled & Retrains and registers the model \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{The Four Stages}
+
+The pipeline follows the structure taught in the course material, adapted to
+this project's data and accounts.
+
+\begin{center}
+\begin{tabular}{@{}c@{}}
+\fbox{\begin{minipage}{0.9\textwidth}
+\centering
+\vspace{2mm}
+\textbf{Stage 1 · Register dataset} \\
+publish the analytical table to a Hugging Face \textit{dataset} repository \\
+$\downarrow$ \\
+\textbf{Stage 2 · Data preparation} \\
+freeze a stratified train/test split and publish it \\
+$\downarrow$ \\
+\textbf{Stage 3 · Model training} \\
+train three models, calibrate the winner, register it as a \textit{model} \\
+$\downarrow$ \\
+\textbf{Stage 4 · Promote to Space} \\
+run pre-flight checks, then publish to the live application
+\vspace{2mm}
+\end{minipage}}
+\end{tabular}
+\end{center}
+
+Each stage runs on its own freshly provisioned machine. They share no memory and
+no filesystem, so they pass work to one another through the Hugging Face Hub,
+which acts as the pipeline's versioned storage layer.
+
+\begin{table}[H]
+\centering
+\caption{Hugging Face repositories used by the pipeline}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Repository} & \textbf{Type} & \textbf{Contents} \\
+\midrule
+\texttt{olist-delivery-risk-data} & Dataset & Analytical table and frozen splits \\
+\texttt{olist-delivery-risk-model} & Model & Trained pipeline and metadata \\
+\texttt{olist-delivery-risk} & Space & The running application \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Separating the three means the model can be retrained and re-registered without
+touching the application, and the application can be redeployed without
+retraining. Every upload creates a commit, so a model can always be traced back
+to the exact data it was trained on.
+
+\projfig{fig47_hf_dataset_repo}{0.98}{The dataset repository after stages 1 and
+2. Each file arrives as its own commit, giving the data a version history.}
+
+\projfig{fig48_hf_model_repo}{0.98}{The model registry. The commit message
+records the algorithm, its ROC-AUC and the decision threshold, so a deployed
+model can be identified without opening it.}
+
+\section{Freezing the Split}
+
+Stage 2 splits the data once and publishes the result, rather than each training
+run making its own split. This matters more than it first appears.
+
+If every run split independently, two models could not be compared fairly: a
+difference in score might reflect nothing more than one model receiving an
+easier test set. Publishing the split converts model comparison from an anecdote
+into a controlled experiment.
+
+The stage also enforces the leakage policy in code. Before splitting anything it
+asserts that none of the nine banned columns appears in the feature list, and
+terminates the pipeline if one does. This is a hard failure rather than a
+warning, because a pipeline that trains a cheating model and reports excellent
+scores is worse than one that stops.
+
+\section{Experiment Tracking}
+
+Stage 3 logs every model, parameter and metric to MLflow. Because a GitHub
+runner is destroyed when its job finishes, the tracking database would normally
+vanish with it. The workflow therefore uploads it as a build artefact, so the
+experiment history outlives the machine that produced it and can be downloaded
+and browsed afterwards:
+
+\begin{lstlisting}[caption={Inspecting the tracking history from a pipeline run}]
+mlflow ui --backend-store-uri sqlite:///mlflow.db
+\end{lstlisting}
+
+\projfig{fig50_mlflow_ui}{0.98}{The MLflow tracking interface, opened locally
+from the artefact produced by a pipeline run.}
+
+An honest limitation: this is per-run history rather than a permanent central
+tracking server. A production team would host MLflow separately so that every
+run across every branch accumulates in one queryable place.
+
+\section{Gated Promotion}
+
+Stage 4 is the only stage that changes what users see, and it is deliberately
+the most cautious. It runs only when explicitly requested, and performs three
+checks before doing anything irreversible.
+
+\begin{enumerate}[leftmargin=*]
+\item \textbf{The model loads.} A corrupted or mismatched artefact fails here
+rather than on the live site.
+\item \textbf{It predicts sensibly.} A deliberately risky order must score above
+a deliberately safe one. A model that has these the wrong way round is broken
+regardless of what its metrics claim.
+\item \textbf{It is not materially worse than what is already deployed.} A drop
+of more than 0.02 ROC-AUC against the live model stops the promotion.
+\end{enumerate}
+
+The third check is the important one. A pipeline that automatically ships
+whatever it most recently trained will eventually ship a regression. Requiring
+the candidate to justify replacing the incumbent turns automation from a risk
+into a safeguard.
+
+\section{Reproducibility}
+
+The pipeline was executed three times: once during the original development,
+once locally through the new scripts, and once on a GitHub Actions runner from a
+clean checkout. All three produced identical results.
+
+\begin{table}[H]
+\centering
+\caption{The same model reproduced across three independent executions}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Metric} & \textbf{Original} & \textbf{Pipeline (local)} &
+\textbf{Pipeline (CI)} \\
+\midrule
+Logistic Regression ROC-AUC & 0.7097 & 0.7097 & 0.7097 \\
+Random Forest ROC-AUC & 0.7994 & 0.7994 & 0.7994 \\
+Gradient Boosting ROC-AUC & 0.8099 & 0.8099 & 0.8099 \\
+Mean probability before calibration & 36.00\% & 36.00\% & 36.00\% \\
+Mean probability after calibration & 8.13\% & 8.13\% & 8.13\% \\
+Brier score after calibration & 0.0633 & 0.0633 & 0.0633 \\
+Decision threshold & 0.155 & 0.155 & 0.155 \\
+Expected cost reduction & 28.9\% & 28.9\% & 28.9\% \\
+\midrule
+Operating system & Windows & Windows & Ubuntu \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This is the strongest evidence in the report that the modelling is sound. The
+figures were not produced by one fortunate run on one machine. They are
+reproducible from the registered data, on a different operating system, through
+a different code path, by a process with no human involvement.
+
+Training took one minute and thirty-eight seconds on the runner against roughly
+ten minutes locally, because the hosted machine has more cores available to the
+parallel forest and the five-fold calibration.
+
+\projfig{fig46_mlops_pipeline_run}{0.98}{A complete pipeline execution on GitHub
+Actions. Stages 1 to 3 completed successfully; stage 4 shows as skipped because
+promotion was not requested, which is the intended default.}
+
+%=============================================================================
 \chapter{Challenges and Resolutions}
 %=============================================================================
 
-Four substantive problems arose during development. Each is recorded with its
-diagnosis and resolution.
+Eight substantive problems arose during development. Each is recorded with its
+diagnosis and resolution, because the resolutions are more instructive than a
+narrative in which nothing went wrong.
 
 \section{Predicted Probabilities Were Inflated Fourfold}
 
@@ -1663,6 +1946,43 @@ setting \texttt{lfs: true} on both checkout steps and by uploading LFS objects
 explicitly, so that any future failure reports plainly rather than manifesting
 as a corrupt model.
 
+\section{Four Dependencies That Only Failed on a Clean Machine}
+
+Four separate faults shared one cause: a package was present in the development
+environment as an indirect dependency, so the code worked locally while the
+declared requirements were incomplete. Each surfaced only on a freshly
+provisioned machine.
+
+\textbf{python-multipart was missing.} FastAPI parses uploaded files through
+this library and raises at import time if a route declares a file parameter
+without it. The application did not merely lose the batch feature; it refused to
+start at all. The validation job caught it, the deployment job was skipped, and
+the live Space continued serving the previous working version rather than a
+container that would crash on boot. This is the two-job structure described in
+Section 10.2 paying for itself in a way that could not be arranged deliberately.
+
+\textbf{MLflow could not coexist with pandas 3.} The full MLflow package caps
+pandas below version 3, while the application is pinned to 3.0.5. Installing
+both is an outright \texttt{ResolutionImpossible}. The cap originates in
+MLflow's bundled tracking server, which this pipeline does not run, so the fix
+was to depend on \texttt{mlflow-skinny} - the client alone. Logging behaves
+identically.
+
+\textbf{MLflow retired the filesystem tracking store.} Version 3.14 places the
+familiar \texttt{./mlruns} directory into maintenance mode and refuses to open
+it, so the training stage failed on its first tracking call. Tracking was moved
+to the supported SQLite backend, which is still a single self-contained file
+requiring no server.
+
+\textbf{SQLAlchemy and Alembic were unpinned.} The SQLite backend needs both,
+\texttt{mlflow-skinny} does not install them, and they were present locally only
+as residue from the full MLflow package that had already been uninstalled. Both
+are now declared explicitly.
+
+The common lesson is that a working development machine proves very little about
+a requirements file. Only a clean install proves it, which is precisely what a
+continuous-integration job provides.
+
 \section{A Credential Was Captured in a Screenshot}
 
 \textbf{Problem.} During documentation, a screenshot inadvertently captured the
@@ -1702,15 +2022,17 @@ Calibration & Isotonic; Brier improved 60\% \\
 Threshold & 0.155, minimising expected cost \\
 Expected cost reduction & 28.9\% versus no action \\
 Application & React and WebGL frontend, FastAPI backend \\
+Prediction modes & Single order, CSV batch, and public API \\
 Deployment & Docker Space on Hugging Face \\
-Automation & GitHub Actions, validated before deploy \\
+Automation & Two workflows: app deployment and MLOps pipeline \\
+Reproducibility & Identical results across three independent runs \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \section{Reflection}
 
-Three lessons stand out.
+Four lessons stand out.
 
 \textbf{The most valuable feature did not exist in the data.} Distance had to be
 constructed by joining a million GPS readings to both ends of every order.
@@ -1722,8 +2044,14 @@ probabilities inflated fourfold, and only measuring calibration exposed it.
 
 \textbf{Deployment is where the real defects appear.} The model trained without
 incident. The genuine problems were binary file handling, LFS pointer
-resolution, metadata validation and credential hygiene. The two-job validation
-gate proved its value on five separate occasions.
+resolution, metadata validation, four incomplete dependency declarations, and
+credential hygiene. Not one of them was a modelling problem.
+
+\textbf{A working development machine proves almost nothing.} Four separate
+faults were invisible locally because a package happened to be installed as an
+indirect dependency. Only a clean install exposes an incomplete requirements
+file, and a continuous-integration job is exactly a clean install performed
+automatically on every change.
 
 \section{Future Work}
 
@@ -1758,7 +2086,13 @@ GitHub repository &
 \url{https://github.com/moikukreja/olist-delivery-risk} \\
 Hugging Face Space &
 \url{https://huggingface.co/spaces/samuelalex37/olist-delivery-risk} \\
-Dataset &
+Registered dataset &
+\url{https://huggingface.co/datasets/samuelalex37/olist-delivery-risk-data} \\
+Registered model &
+\url{https://huggingface.co/samuelalex37/olist-delivery-risk-model} \\
+API documentation &
+\url{https://samuelalex37-olist-delivery-risk.hf.space/docs} \\
+Original dataset &
 \url{https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce} \\
 \bottomrule
 \end{tabular}
@@ -1790,6 +2124,31 @@ cd frontend && npm install && npm run build
 
 A fresh clone must run \texttt{git lfs pull} before use, otherwise the model and
 data files will be present only as LFS pointers.
+
+\section{Running the MLOps Pipeline}
+
+The four stages can be run individually from a machine holding a Hugging Face
+token with write access to the dataset, model and Space repositories:
+
+\begin{lstlisting}[caption={Running the pipeline stages by hand}]
+pip install -r mlops/requirements.txt
+
+venv\Scripts\python.exe mlops\data_register.py
+venv\Scripts\python.exe mlops\prep.py
+venv\Scripts\python.exe mlops\train.py
+venv\Scripts\python.exe mlops\hosting.py
+\end{lstlisting}
+
+More usually it is run from the repository's Actions tab, under
+\textbf{MLOps pipeline}, using \textbf{Run workflow}. Leaving the
+\textbf{Promote to Space} option unticked trains and registers a candidate model
+without altering the live application, which is the safe default.
+
+The token must be scoped to all three repositories. A token scoped only to the
+Space, as used by the application deployment workflow, will authenticate
+successfully and then be refused when the pipeline attempts to write the dataset
+or the model. The scripts detect this and print the required permission change
+rather than a stack trace.
 
 \section{Environment}
 

@@ -99,6 +99,32 @@ It ranks in the model's top six features and did not exist before we made it.
 
 ---
 
+## Two ways to predict
+
+**One order at a time** — a form collecting the twelve facts known at checkout,
+returning a calibrated probability, a risk tier and the reasoning behind it.
+
+**A whole file at once** — upload a CSV and every row is scored in one pass.
+2,000 orders take under half a second. Rows that fail validation report their own
+line number while the rest still score. The results download with six added
+columns: distance, probability, risk tier, flag, lift versus average, and the
+recommended action.
+
+Both paths share one feature-building function, so they cannot drift apart. The
+four template rows score 1.4% / 11.7% / 36.0% / 22.3% — identical to the four
+presets on the single-order form.
+
+The batch endpoint is a plain HTTP API, so it works from a scheduled job too:
+
+```bash
+curl -F "file=@orders.csv" https://samuelalex37-olist-delivery-risk.hf.space/api/predict/batch
+```
+
+Every route is documented interactively at
+[`/docs`](https://samuelalex37-olist-delivery-risk.hf.space/docs).
+
+---
+
 ## Architecture
 
 ```
@@ -112,6 +138,38 @@ Browser  ──►  React 19 + TypeScript          (deck.gl WebGL map, GLSL shad
 ```
 
 One container serves both the API and the compiled frontend on port 7860.
+
+### Two workflows, two jobs
+
+| Workflow | Trigger | Ships |
+|---|---|---|
+| `deploy.yml` | every push to `main` | the **application** |
+| `mlops-pipeline.yml` | manual or scheduled | the **model** |
+
+Retraining on every push would deploy a slightly different model each time and
+the figures in this README would stop matching the live app. So the two are
+separated deliberately.
+
+The MLOps pipeline has four stages, each on its own machine, passing work
+through the Hugging Face Hub:
+
+```
+register-dataset  →  data-prep  →  model-training  →  deploy-hosting
+  HF Dataset          frozen         MLflow +           gated promotion
+  repository          split          HF Model repo      to the live Space
+```
+
+Stage 4 only runs when explicitly requested, and first checks the model loads,
+ranks a risky order above a safe one, and is not more than 0.02 ROC-AUC worse
+than what is already live.
+
+**Reproducibility:** the pipeline has been run three times — during original
+development, locally through the scripts, and on a GitHub Actions runner from a
+clean checkout. All three produced ROC-AUC 0.8101, threshold 0.155, and a 28.9%
+cost reduction, on two different operating systems.
+
+- 📊 [Registered dataset](https://huggingface.co/datasets/samuelalex37/olist-delivery-risk-data)
+- 🤖 [Registered model](https://huggingface.co/samuelalex37/olist-delivery-risk-model)
 
 ### Repository layout
 
@@ -137,8 +195,18 @@ olist-delivery-risk/
 │   ├── 05_smoke_test.py       prove model.joblib loads and predicts sanely
 │   ├── 06_build_app_assets.py shrink 20.6 MB → 2.9 MB for deployment
 │   └── 07_simplify_geojson.py Douglas-Peucker map simplification
+├── mlops/                     the automated MLOps pipeline
+│   ├── config.py              repo ids, feature contract, leakage guard
+│   ├── data_register.py       stage 1 — publish the dataset to the Hub
+│   ├── prep.py                stage 2 — freeze the train/test split
+│   ├── train.py               stage 3 — train, calibrate, register
+│   ├── hosting.py             stage 4 — pre-flight checks, then promote
+│   └── requirements.txt       pipeline-only dependencies
 ├── reports/figures/           16 charts used in the report
-└── .github/workflows/         GitHub Actions deployment
+├── report/                    the LaTeX report and compiled PDF
+└── .github/workflows/
+    ├── deploy.yml             ships the app on every push
+    └── mlops-pipeline.yml     retrains the model on demand
 ```
 
 ---
